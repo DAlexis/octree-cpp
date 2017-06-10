@@ -2,49 +2,61 @@
 #include <iostream>
 #include <cstring>
 #include <stdexcept>
+#include <list>
+
+SubdivisionPos::SubdivisionPos()
+{
+}
+
+SubdivisionPos::SubdivisionPos(Position center, Position point)
+{
+	for(int i=0; i<3; i++)
+		s[i] = point.x[i] < center.x[i] ? 0 : 1;
+}
+
 
 OctreeNode::OctreeNode(SubdivisionPos subdivision, OctreeNode* parent) :
 	parent(parent),
-	subdivisionPos(subdivision)
+	subdivisionPos(subdivision),
+	subdivisionLevel(parent->subdivisionLevel + 1),
+	size(parent->size / 2.0)
 {
-	if (parent != nullptr)
+	for (int i=0; i<3; i++)
 	{
-		cornerMin = parent->cornerMin;
-		cornerMax = parent->cornerMax;
-		for (int i=0; i<3; i++)
-		{
-			if (subdivision.s[0] == 0)
-				cornerMax.x[0] = parent->center.x[0];
-			else
-				cornerMin.x[0] = parent->center.x[0];
-		}
+		if (subdivision.s[i] == 0)
+			center.x[i] = parent->center.x[i] - size / 2.0;
+		else
+			center.x[i] = parent->center.x[i] + size / 2.0;
 	}
-	calculateCenter();
 }
 
-OctreeNode::OctreeNode(Position cornerMin, Position cornerMax) :
-	parent(nullptr),
-	cornerMin(cornerMin),
-	cornerMax(cornerMax)
+OctreeNode::OctreeNode(Position center, double size) :
+		subdivisionLevel(0), center(center), size(size)
 {
-	calculateCenter();
 }
 
 void OctreeNode::addElement(const OctreeElement& e)
 {
 	if (!hasSubnodes)
 	{
-		if (element != nullptr)
+		if (element == nullptr)
 		{
-			giveElementToSubnodes(*element);
-			element.reset();
-		} else {
 			element.reset(new OctreeElement(e));
+			element->parent = this;
 			return;
 		}
+
+		if (element->pos == e.pos)
+		{
+			throw std::runtime_error("Cannot work with 2 elements at one place");
+		}
+		element->parent = nullptr;
+		giveElementToSubnodes(*element);
+		element.reset();
 	}
 	giveElementToSubnodes(e);
 }
+
 
 size_t OctreeNode::elementsCount()
 {
@@ -60,16 +72,69 @@ size_t OctreeNode::elementsCount()
 	return count;
 }
 
+/*
+OctreeElement& OctreeNode::getNearest(Position pos)
+{
+	if (element != nullptr)
+		return *element;
+
+	//SubdivisionPos subdivision(pos, element);
+}*/
+
+DistToNode OctreeNode::getDistsToNode(Position pos)
+{
+	DistToNode result;
+	if (element != nullptr)
+	{
+		result.nearest = result.farest = (element->pos - pos).len();
+		return result;
+	}
+	result.nearest = -1;
+	result.farest = -1;
+	Position corner;
+	corner.x[0] = center.x[0] + size/2.0;
+	corner.x[1] = center.x[1] + size/2.0;
+	corner.x[2] = center.x[2] + size/2.0;
+	result.nearest = result.farest = (corner - pos).len();
+
+	for (int x = -1; x <=1; x += 2)
+		for (int y = -1; y <=1; y += 2)
+			for (int z = -1; z <=1; z += 2)
+			{
+				corner.x[0] = center.x[0] + x*size/2.0;
+				corner.x[1] = center.x[1] + y*size/2.0;
+				corner.x[2] = center.x[2] + z*size/2.0;
+				double dist = (corner - pos).len();
+				if (result.farest < dist)
+					result.farest = dist;
+				if (result.nearest > dist)
+					result.nearest = dist;
+			}
+	return result;
+}
+
+
+void OctreeNode::dbgOutCoords(std::ostream& s)
+{
+	for (int x = -1; x <=1; x += 2)
+		for (int y = -1; y <=1; y += 2)
+			for (int z = -1; z <=1; z += 2)
+				s << center[0] + x*size/2.0 << ","
+				  << center[1] + y*size/2.0 << ","
+				  << center[2] + z*size/2.0
+				  << std::endl;
+
+	for (int i=0; i<8; i++)
+	{
+		if (subnodes[i] != nullptr)
+			subnodes[i]->dbgOutCoords(s);
+	}
+}
+
 void OctreeNode::giveElementToSubnodes(const OctreeElement& e)
 {
-	SubdivisionPos targerSubdivision;
-	for (int i=0; i<3; i++)
-	{
-		if (e.pos.x[i] < center.x[i])
-			targerSubdivision.s[i] = 0;
-		else
-			targerSubdivision.s[i] = 1;
-	}
+	SubdivisionPos targerSubdivision(center, e.pos);
+
 	int index = targerSubdivision.index();
 	if (subnodes[index] == nullptr)
 	{
@@ -78,26 +143,27 @@ void OctreeNode::giveElementToSubnodes(const OctreeElement& e)
 	}
 	subnodes[index]->addElement(e);
 }
-
-void OctreeNode::calculateCenter()
+/*
+OctreeNode* OctreeNode::getNeighbour(const signed char direction[3])
 {
 	for (int i=0; i<3; i++)
-		center.x[i] = (cornerMin.x[i] + cornerMax.x[i]) / 2.0;
-}
+	{
+
+	}
+}*/
 
 /////////////////////////////////
 // Octree
-Octree::Octree(Position minCorner, Position maxCorner) :
-	m_initializedByCorners(true),
-	m_minCorner(minCorner),
-	m_maxCorner(maxCorner),
-	m_initialSize(0.0)
+Octree::Octree(Position center, double initialSize) :
+	m_center(center),
+	m_initialSize(initialSize),
+	m_centerIsSet(true)
 {
 }
 
 Octree::Octree(double initialSize) :
-	m_initializedByCorners(false),
-	m_initialSize(0.0)
+	m_initialSize(initialSize),
+	m_centerIsSet(false)
 {
 }
 
@@ -105,24 +171,23 @@ void Octree::add(const OctreeElement& e)
 {
 	if (m_root == nullptr)
 	{
-		if (!m_initializedByCorners)
+		if (!m_centerIsSet)
 		{
-			for (int i=0; i<3; i++)
-			{
-				m_minCorner.x[i] = e.pos.x[i] - m_initialSize / 2.0;
-				m_maxCorner.x[i] = e.pos.x[i] + m_initialSize / 2.0;
-			}
-		} else {
-			for (int i=0; i<3; i++)
-			{
-				if (m_minCorner.x[i] > e.pos.x[i] || m_maxCorner.x[i] < e.pos.x[i])
-					throw std::runtime_error("Space extension not supported yet");
-			}
+			m_center = e.pos;
+			m_centerIsSet = true;
 		}
+
+		for (int i=0; i<3; i++)
+		{
+			if (m_center.x[i] - m_initialSize > e.pos.x[i]
+				|| m_center.x[i] + m_initialSize < e.pos.x[i])
+				throw std::runtime_error("Space extension not supported yet");
+		}
+
 
 		m_root.reset(
 			new OctreeNode(
-				m_minCorner, m_maxCorner
+				m_center, m_initialSize
 			)
 		);
 	}
@@ -135,4 +200,66 @@ size_t Octree::count()
 		return m_root->elementsCount();
 	else
 		return 0;
+}
+
+OctreeElement& Octree::getNearest(Position pos)
+{
+	using namespace std;
+	if (m_root == nullptr)
+		throw(std::runtime_error("Octree is empty"));
+	// ndp = node-distance pair
+	using ndp = pair<const OctreeNode*, DistToNode>;
+	list<ndp> nodes;
+	list<ndp> nodesNext;
+	nodes.push_back(ndp(m_root.get(), m_root->getDistsToNode(pos)));
+
+	double minFarest = nodes.front().second.farest;
+
+	do {
+		// Finding closes
+		for (auto it=nodes.begin(); it!=nodes.end(); it++)
+		{
+			double farest = it->second.farest;
+			if (farest < minFarest)
+				minFarest = farest;
+		}
+
+		// Removing nodes that are too far
+		for (auto it=nodes.begin(); it != nodes.end(); )
+		{
+			if (it->second.nearest > minFarest)
+				it = nodes.erase(it);
+			else
+				it++;
+		}
+
+		nodesNext.clear();
+		// Subdivision
+		for (auto it=nodes.begin(); it!=nodes.end(); it++)
+		{
+			const OctreeNode& n = *(it->first);
+			if (n.element != nullptr)
+			{
+				nodesNext.push_back(*it);
+				continue;
+			}
+			for (int i=0; i<8; i++)
+			{
+				if (n.subnodes[i] == nullptr)
+					continue;
+
+				nodesNext.push_back(ndp(n.subnodes[i].get(), n.subnodes[i]->getDistsToNode(pos)));
+			}
+		}
+		swap(nodes, nodesNext);
+	} while (!(nodes.size() == 1 && nodes.front().first->element != nullptr));
+
+	// const_cast is not bad, because const modifier used only for code above
+	// in this function, and its job is done
+	return const_cast<OctreeElement&>(*(nodes.front().first->element));
+}
+
+void Octree::dbgOutCoords(std::ostream& s)
+{
+	m_root->dbgOutCoords(s);
 }

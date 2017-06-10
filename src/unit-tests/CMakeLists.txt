@@ -11,6 +11,7 @@ include_directories (
 
 set(EXE_SOURCES
     octree-tests.cpp
+    test-utils.hpp
 )
 
 add_executable(${PROJECT_NAME} ${EXE_SOURCES})

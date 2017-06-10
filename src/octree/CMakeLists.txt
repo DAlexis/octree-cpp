@@ -5,6 +5,7 @@ project(octree)
 set(LIB_SOURCE
     octree.cpp
     octree.hpp
+    geom-vector.hpp
 )
 
 set(${PROJECT_NAME}_USED_INCDIRS
