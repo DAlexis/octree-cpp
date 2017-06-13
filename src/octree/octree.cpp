@@ -181,7 +181,9 @@ void Octree::add(const OctreeElement& e)
 		{
 			if (m_center.x[i] - m_initialSize > e.pos.x[i]
 				|| m_center.x[i] + m_initialSize < e.pos.x[i])
+			{
 				throw std::runtime_error("Space extension not supported yet");
+			}
 		}
 
 
@@ -262,4 +264,22 @@ OctreeElement& Octree::getNearest(Position pos)
 void Octree::dbgOutCoords(std::ostream& s)
 {
 	m_root->dbgOutCoords(s);
+}
+
+void Octree::enlargeSpace(const OctreeElement& e)
+{
+	Position newRootCenter;
+	for (int i=0; i<3; i++)
+	{
+		double cx = m_root->center.x[i];
+		double dcx = m_root->size / 2.0;
+		newRootCenter.x[i] = cx + (e.pos.x[i] > cx ? dcx : -dcx);
+	}
+	SubdivisionPos subPos(newRootCenter, m_root->center);
+	std::unique_ptr<OctreeNode> n(new OctreeNode(newRootCenter, m_root->size * 2));
+	n->hasSubnodes = true;
+	n->subdivisionLevel = m_root->subdivisionLevel - 1;
+	n->subdivisionPos = subPos;
+	n->subnodes[subPos.index()] = std::move(m_root);
+	m_root = std::move(n);
 }

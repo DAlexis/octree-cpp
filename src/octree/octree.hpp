@@ -66,7 +66,7 @@ public:
 	OctreeNode* parent = nullptr;
 	
 	SubdivisionPos subdivisionPos;
-	unsigned int subdivisionLevel = 0;
+	int subdivisionLevel = 0;
 	bool hasSubnodes = false;
 	
 	//OctreeNode*& getSubnode(const SubdivisionPos& sp);
@@ -101,6 +101,8 @@ public:
 	const OctreeNode& root() { return *m_root; }
 
 private:
+	void enlargeSpace(const OctreeElement& e);
+
 	std::unique_ptr<OctreeNode> m_root;
 	Position m_center;
 	double m_initialSize;
