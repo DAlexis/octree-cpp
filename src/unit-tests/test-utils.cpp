@@ -2,6 +2,7 @@
 
 void PointsGenerator::addGrid(int n, double size, Octree& oct, std::vector<Position>* positions)
 {
+    CenterMassUpdatingMute m(oct);
     for (int i=0; i<n; i++)
         for (int j=0; j<n; j++)
             for (int k=0; k<n; k++)

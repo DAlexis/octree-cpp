@@ -9,6 +9,7 @@
 #include <cmath>
 
 class OctreeNode;
+class Octree;
 
 struct OctreeElement
 {
@@ -49,16 +50,19 @@ struct DistToNode
 class OctreeNode
 {
 public:
-	OctreeNode(SubdivisionPos subdivision, OctreeNode* parent);
-	OctreeNode(Position center, double size);
+    OctreeNode(Octree* octree, SubdivisionPos subdivision, OctreeNode* parent);
+    OctreeNode(Octree* octree, Position center, double size);
 	void addElement(const OctreeElement& e);
 	size_t elementsCount();
 	OctreeElement& findNearest(Position pos);
 
-	/**
-	 * Returns minimal and maximal distance to node (to its corners)
-	 */
+    /**
+     * @brief Returns minimal and maximal distance to node (to its corners)
+     * @param pos Point that distance should be calculated from
+     * @return
+     */
 	DistToNode getDistsToNode(Position pos);
+
 	/**
 	* @brief Checks if some point is inside this cell
 	* @param pos Point to test
@@ -80,10 +84,19 @@ public:
 	Position center;
 	double size;
 
+    Position massCenter;
+    Position mass;
+
 	std::unique_ptr<OctreeNode> subnodes[8];
 
+    void updateMassCenterReqursiveUp();
+    void updateMassCenterReqursiveDown();
+
 private:
+    void updateMassCenter();
+
 	void giveElementToSubnodes(const OctreeElement& e);
+    Octree* m_octree = nullptr;
 };
 
 class Octree
@@ -101,6 +114,10 @@ public:
 	
 	const OctreeNode& root() { return *m_root; }
 
+    bool centerMassUpdatingEnabled() const;
+    void muteCenterMassCalculation();
+    void unmuteCenterMassCalculation();
+
 private:
 	void enlargeSpaceIteration(const Position& p);
 	bool isPointInsideRoot(const Position& p);
@@ -109,6 +126,30 @@ private:
 	Position m_center;
 	double m_initialSize;
 	bool m_centerIsSet;
+    bool m_centerMassUpdatingEnabled = true;
+};
+
+/**
+ * @brief The CenterMassUpdatingMute class
+ * RAII object to mute center mass calculation in octree
+ */
+class CenterMassUpdatingMute
+{
+public:
+    CenterMassUpdatingMute(Octree& octree);
+    ~CenterMassUpdatingMute();
+
+    void unmute();
+
+private:
+    Octree& m_octree;
+};
+
+class Convolution
+{
+public:
+
+private:
 };
 
 #endif // LIBHEADER_INCLUDED

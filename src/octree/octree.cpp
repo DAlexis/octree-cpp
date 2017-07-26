@@ -15,11 +15,12 @@ SubdivisionPos::SubdivisionPos(Position center, Position point)
 }
 
 
-OctreeNode::OctreeNode(SubdivisionPos subdivision, OctreeNode* parent) :
+OctreeNode::OctreeNode(Octree* octree, SubdivisionPos subdivision, OctreeNode* parent) :
 	parent(parent),
 	subdivisionPos(subdivision),
 	subdivisionLevel(parent->subdivisionLevel + 1),
-	size(parent->size / 2.0)
+    size(parent->size / 2.0),
+    m_octree(octree)
 {
 	for (int i=0; i<3; i++)
 	{
@@ -30,8 +31,8 @@ OctreeNode::OctreeNode(SubdivisionPos subdivision, OctreeNode* parent) :
 	}
 }
 
-OctreeNode::OctreeNode(Position center, double size) :
-		subdivisionLevel(0), center(center), size(size)
+OctreeNode::OctreeNode(Octree* octree, Position center, double size) :
+        subdivisionLevel(0), center(center), size(size), m_octree(octree)
 {
 }
 
@@ -43,6 +44,8 @@ void OctreeNode::addElement(const OctreeElement& e)
 		{
 			element.reset(new OctreeElement(e));
 			element->parent = this;
+            if (m_octree->centerMassUpdatingEnabled())
+                updateMassCenterReqursiveUp();
 			return;
 		}
 
@@ -135,6 +138,46 @@ void OctreeNode::dbgOutCoords(std::ostream& s)
 	}
 }
 
+void OctreeNode::updateMassCenter()
+{
+    if (element != nullptr)
+    {
+        massCenter = element->pos;
+        mass = element->value;
+        return;
+    }
+    massCenter = {0.0, 0.0, 0.0};
+    mass = 0.0;
+    int count = 0;
+    for (int i=0; i<8; i++)
+    {
+        if (subnodes[i] != nullptr)
+        {
+            massCenter += subnodes[i]->massCenter;
+            mass += subnodes[i]->mass;
+            count++;
+        }
+    }
+    mass /= count;
+    massCenter /= count;
+}
+
+void OctreeNode::updateMassCenterReqursiveUp()
+{
+    updateMassCenter();
+    if (parent != nullptr)
+        parent->updateMassCenterReqursiveUp();
+}
+
+void OctreeNode::updateMassCenterReqursiveDown()
+{
+    /// @todo May be optimized by using one cycle for calls and sum calculations, but this will duplicate code
+    for (int i=0; i<8; i++)
+        if (subnodes[i] != nullptr)
+            subnodes[i]->updateMassCenterReqursiveDown();
+    updateMassCenter();
+}
+
 void OctreeNode::giveElementToSubnodes(const OctreeElement& e)
 {
 	SubdivisionPos targerSubdivision(center, e.pos);
@@ -142,7 +185,7 @@ void OctreeNode::giveElementToSubnodes(const OctreeElement& e)
 	int index = targerSubdivision.index();
 	if (subnodes[index] == nullptr)
 	{
-		subnodes[index].reset(new OctreeNode(targerSubdivision, this));
+        subnodes[index].reset(new OctreeNode(m_octree, targerSubdivision, this));
 		hasSubnodes = true;
 	}
 	subnodes[index]->addElement(e);
@@ -175,9 +218,7 @@ void Octree::add(const OctreeElement& e)
 		}
 
 		m_root.reset(
-			new OctreeNode(
-				m_center, m_initialSize
-			)
+            new OctreeNode(this, m_center, m_initialSize)
 		);
 	}
     // Enlarging root cell
@@ -258,6 +299,23 @@ void Octree::dbgOutCoords(std::ostream& s)
 	m_root->dbgOutCoords(s);
 }
 
+bool Octree::centerMassUpdatingEnabled() const
+{
+    return m_centerMassUpdatingEnabled;
+}
+
+void Octree::muteCenterMassCalculation()
+{
+    m_centerMassUpdatingEnabled = false;
+}
+
+void Octree::unmuteCenterMassCalculation()
+{
+    m_centerMassUpdatingEnabled = true;
+    /// @todo Optimization: update only if changed
+    m_root->updateMassCenterReqursiveDown();
+}
+
 void Octree::enlargeSpaceIteration(const Position& p)
 {
 	Position newRootCenter;
@@ -268,10 +326,30 @@ void Octree::enlargeSpaceIteration(const Position& p)
         	newRootCenter.x[i] = cx + (p.x[i] > cx ? dcx : -dcx);
 	}
 	SubdivisionPos subPos(newRootCenter, m_root->center);
-	std::unique_ptr<OctreeNode> n(new OctreeNode(newRootCenter, m_root->size * 2));
+    std::unique_ptr<OctreeNode> n(new OctreeNode(this, newRootCenter, m_root->size * 2));
 	n->hasSubnodes = true;
 	n->subdivisionLevel = m_root->subdivisionLevel - 1;
 	n->subdivisionPos = subPos;
 	n->subnodes[subPos.index()] = std::move(m_root);
 	m_root = std::move(n);
+}
+
+///////////////////////////
+/// CenterMassUpdatingMute
+
+CenterMassUpdatingMute::CenterMassUpdatingMute(Octree& octree) :
+    m_octree(octree)
+{
+    m_octree.muteCenterMassCalculation();
+}
+
+CenterMassUpdatingMute::~CenterMassUpdatingMute()
+{
+    unmute();
+}
+
+void CenterMassUpdatingMute::unmute()
+{
+    if (!m_octree.centerMassUpdatingEnabled())
+        m_octree.unmuteCenterMassCalculation();
 }

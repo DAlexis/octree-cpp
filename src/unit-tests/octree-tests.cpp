@@ -9,7 +9,7 @@
 
 TEST(OctreeNode, DistToNode)
 {
-	OctreeNode n(Position(10.0, 20.0, 30.0), 2.0);
+    OctreeNode n(nullptr, Position(10.0, 20.0, 30.0), 2.0);
 	auto d1 = n.getDistsToNode(Position(10.0, 20.0, 30.0));
 	EXPECT_NEAR(d1.farest, sqrt(3.0), 1e-6);
     EXPECT_NEAR(d1.nearest, sqrt(3.0), 1e-6);
