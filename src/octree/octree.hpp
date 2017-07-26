@@ -59,6 +59,12 @@ public:
 	 * Returns minimal and maximal distance to node (to its corners)
 	 */
 	DistToNode getDistsToNode(Position pos);
+	/**
+	* @brief Checks if some point is inside this cell
+	* @param pos Point to test
+	* @return true if inside, false otherwise
+	*/
+	bool isInside(const Position& pos);
 
 	void dbgOutCoords(std::ostream& s);
 
@@ -68,10 +74,8 @@ public:
 	SubdivisionPos subdivisionPos;
 	int subdivisionLevel = 0;
 	bool hasSubnodes = false;
-	
-	//OctreeNode*& getSubnode(const SubdivisionPos& sp);
 
-	//OctreeNode* getNeighbour();
+    //OctreeNode*& getSubnode(const SubdivisionPos& sp);
 
 	Position center;
 	double size;
@@ -80,9 +84,6 @@ public:
 
 private:
 	void giveElementToSubnodes(const OctreeElement& e);
-
-	OctreeNode* getNeighbour(const signed char direction[3]);
-
 };
 
 class Octree
@@ -101,7 +102,8 @@ public:
 	const OctreeNode& root() { return *m_root; }
 
 private:
-	void enlargeSpace(const OctreeElement& e);
+	void enlargeSpaceIteration(const Position& p);
+	bool isPointInsideRoot(const Position& p);
 
 	std::unique_ptr<OctreeNode> m_root;
 	Position m_center;

@@ -72,15 +72,6 @@ size_t OctreeNode::elementsCount()
 	return count;
 }
 
-/*
-OctreeElement& OctreeNode::getNearest(Position pos)
-{
-	if (element != nullptr)
-		return *element;
-
-	//SubdivisionPos subdivision(pos, element);
-}*/
-
 DistToNode OctreeNode::getDistsToNode(Position pos)
 {
 	DistToNode result;
@@ -113,6 +104,19 @@ DistToNode OctreeNode::getDistsToNode(Position pos)
 	return result;
 }
 
+bool OctreeNode::isInside(const Position& pos)
+{
+    double hs = size / 2.0;
+    for (int i=0; i<3; i++)
+    {
+        if (
+            pos.x[i] >= center.x[i] + hs
+            || pos.x[i] < center.x[i] - hs
+        )
+            return false;
+    }
+    return true;
+}
 
 void OctreeNode::dbgOutCoords(std::ostream& s)
 {
@@ -143,14 +147,6 @@ void OctreeNode::giveElementToSubnodes(const OctreeElement& e)
 	}
 	subnodes[index]->addElement(e);
 }
-/*
-OctreeNode* OctreeNode::getNeighbour(const signed char direction[3])
-{
-	for (int i=0; i<3; i++)
-	{
-
-	}
-}*/
 
 /////////////////////////////////
 // Octree
@@ -169,6 +165,7 @@ Octree::Octree(double initialSize) :
 
 void Octree::add(const OctreeElement& e)
 {
+    // Creating foor if no
 	if (m_root == nullptr)
 	{
 		if (!m_centerIsSet)
@@ -177,22 +174,17 @@ void Octree::add(const OctreeElement& e)
 			m_centerIsSet = true;
 		}
 
-		for (int i=0; i<3; i++)
-		{
-			if (m_center.x[i] - m_initialSize > e.pos.x[i]
-				|| m_center.x[i] + m_initialSize < e.pos.x[i])
-			{
-				throw std::runtime_error("Space extension not supported yet");
-			}
-		}
-
-
 		m_root.reset(
 			new OctreeNode(
 				m_center, m_initialSize
 			)
 		);
 	}
+    // Enlarging root cell
+    while (!m_root->isInside(e.pos))
+    {
+        enlargeSpaceIteration(e.pos);
+    }
 	m_root->addElement(e);
 }
 
@@ -266,14 +258,14 @@ void Octree::dbgOutCoords(std::ostream& s)
 	m_root->dbgOutCoords(s);
 }
 
-void Octree::enlargeSpace(const OctreeElement& e)
+void Octree::enlargeSpaceIteration(const Position& p)
 {
 	Position newRootCenter;
 	for (int i=0; i<3; i++)
 	{
 		double cx = m_root->center.x[i];
 		double dcx = m_root->size / 2.0;
-		newRootCenter.x[i] = cx + (e.pos.x[i] > cx ? dcx : -dcx);
+        	newRootCenter.x[i] = cx + (p.x[i] > cx ? dcx : -dcx);
 	}
 	SubdivisionPos subPos(newRootCenter, m_root->center);
 	std::unique_ptr<OctreeNode> n(new OctreeNode(newRootCenter, m_root->size * 2));
