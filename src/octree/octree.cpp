@@ -153,13 +153,13 @@ void OctreeNode::updateMassCenter()
     {
         if (subnodes[i] != nullptr)
         {
-            massCenter += subnodes[i]->massCenter;
-            mass += subnodes[i]->mass;
+            double nodeMass = subnodes[i]->mass;
+            massCenter += subnodes[i]->massCenter * nodeMass;
+            mass += nodeMass;
             count++;
         }
     }
-    mass /= count;
-    massCenter /= count;
+    massCenter /= mass;
 }
 
 void OctreeNode::updateMassCenterReqursiveUp()
@@ -294,6 +294,18 @@ OctreeElement& Octree::getNearest(Position pos)
 	return const_cast<OctreeElement&>(*(nodes.front().first->element));
 }
 
+double Octree::mass()
+{
+    if (m_root == nullptr)
+        return 0.0;
+    return m_root->mass;
+}
+
+const Position& Octree::massCenter()
+{
+    return m_root->massCenter;
+}
+
 void Octree::dbgOutCoords(std::ostream& s)
 {
 	m_root->dbgOutCoords(s);
@@ -332,6 +344,8 @@ void Octree::enlargeSpaceIteration(const Position& p)
 	n->subdivisionPos = subPos;
 	n->subnodes[subPos.index()] = std::move(m_root);
 	m_root = std::move(n);
+    if (centerMassUpdatingEnabled())
+        m_root->updateMassCenter();
 }
 
 ///////////////////////////

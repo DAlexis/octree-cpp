@@ -44,7 +44,7 @@ public:
     GeomVector()
     	{ memset(x, 0, sizeof(x[0])*dim); }
 
-    double len()
+    double len() const
     {
     	double result = 0;
     	for (int i=0; i<dim; i++)
@@ -164,7 +164,7 @@ public:
         return result;
     }
 
-    std::string str()
+    std::string str() const
     {
     	return std::string("(") +
     			std::to_string(x[0]) + "; " +

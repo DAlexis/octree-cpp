@@ -85,15 +85,15 @@ public:
 	double size;
 
     Position massCenter;
-    Position mass;
+    double mass;
 
 	std::unique_ptr<OctreeNode> subnodes[8];
 
     void updateMassCenterReqursiveUp();
     void updateMassCenterReqursiveDown();
+    void updateMassCenter();
 
 private:
-    void updateMassCenter();
 
 	void giveElementToSubnodes(const OctreeElement& e);
     Octree* m_octree = nullptr;
@@ -113,6 +113,8 @@ public:
 	OctreeElement& getNearest(Position pos);
 	
 	const OctreeNode& root() { return *m_root; }
+    double mass();
+    const Position& massCenter();
 
     bool centerMassUpdatingEnabled() const;
     void muteCenterMassCalculation();
