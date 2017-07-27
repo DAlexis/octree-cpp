@@ -3,6 +3,7 @@
 #include <cstring>
 #include <stdexcept>
 #include <list>
+#include <algorithm>
 
 SubdivisionPos::SubdivisionPos()
 {
@@ -61,7 +62,7 @@ void OctreeNode::addElement(const OctreeElement& e)
 }
 
 
-size_t OctreeNode::elementsCount()
+size_t OctreeNode::elementsCount() const
 {
 	if (!hasSubnodes && element != nullptr)
 		return 1;
@@ -75,7 +76,15 @@ size_t OctreeNode::elementsCount()
 	return count;
 }
 
-DistToNode OctreeNode::getDistsToNode(Position pos)
+double OctreeNode::diameter() const
+{
+    if (element == nullptr)
+        return size * sqrt(3);
+    else
+        return 0.0;
+}
+
+DistToNode OctreeNode::getDistsToNode(Position pos) const
 {
 	DistToNode result;
 	if (element != nullptr)
@@ -107,7 +116,7 @@ DistToNode OctreeNode::getDistsToNode(Position pos)
 	return result;
 }
 
-bool OctreeNode::isInside(const Position& pos)
+bool OctreeNode::isInside(const Position& pos) const
 {
     double hs = size / 2.0;
     for (int i=0; i<3; i++)
@@ -366,4 +375,89 @@ void CenterMassUpdatingMute::unmute()
 {
     if (!m_octree.centerMassUpdatingEnabled())
         m_octree.unmuteCenterMassCalculation();
+}
+
+///////////////////////////
+// Convolution
+Convolution::Convolution()
+{
+    addScale(0.0, 0.0);
+}
+
+void Convolution::addScale(double minDistance, double averagingScale)
+{
+    m_distsScales.push_back(std::pair<double, double>(minDistance, averagingScale));
+}
+
+double Convolution::convolute(const Octree& oct, const Position& target, Visitor v)
+{
+    sortDistsScales();
+    m_nodesList.clear();
+    double result = 0.0;
+    for (
+         m_nodesList.push_back(&oct.root());
+         m_nodesList.size() != 0;
+         m_nodesList.pop_front()
+    )
+    {
+        const OctreeNode *n = m_nodesList.front();
+        if (n->isInside(target))
+        {
+            if (n->element != nullptr)
+            {
+                // We have only one object in cube with point target, so we can ise directly its mass and center
+                result += v(target, n->massCenter, n->mass);
+            } else {
+                // Node we located in has subnodes, lets devide it
+                addSubnodesToList(n);
+            }
+            continue;
+        }
+        DistToNode d = n->getDistsToNode(target);
+        double scale = findScale(d.nearest);
+        if (n->diameter() <= scale)
+        {
+            // We can use averaging over this node
+            result += v(target, n->massCenter, n->mass);
+        } else {
+            // Node is too large, so we should devide it
+            addSubnodesToList(n);
+        }
+    }
+    return result;
+}
+
+void Convolution::sortDistsScales()
+{
+    std::sort(m_distsScales.begin(), m_distsScales.end(),
+        [](const std::pair<double, double> p1, std::pair<double, double> p2)
+        { return p1.first < p2.first; }
+    );
+}
+
+double Convolution::findScale(double distance)
+{
+    if (distance >= m_distsScales.back().first)
+        return m_distsScales.back().second;
+    int l = 0, r = m_distsScales.size() - 1;
+    int c = (l+r) / 2;
+    while (r-l > 1)
+    {
+        if (m_distsScales[c].first <= distance)
+            l = c;
+        else
+            r = c;
+        c = (l+r) / 2;
+    }
+    return m_distsScales[l].second;
+}
+
+void Convolution::addSubnodesToList(const OctreeNode* n)
+{
+    for (int i=0; i<8; i++)
+    {
+        const OctreeNode *subnode = n->subnodes[i].get();
+        if (subnode != nullptr)
+            m_nodesList.push_back(subnode);
+    }
 }

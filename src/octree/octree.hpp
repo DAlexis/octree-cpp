@@ -4,6 +4,9 @@
 #include "geom-vector.hpp"
 
 #include <ostream>
+#include <functional>
+#include <vector>
+#include <list>
 
 #include <memory>
 #include <cmath>
@@ -53,22 +56,24 @@ public:
     OctreeNode(Octree* octree, SubdivisionPos subdivision, OctreeNode* parent);
     OctreeNode(Octree* octree, Position center, double size);
 	void addElement(const OctreeElement& e);
-	size_t elementsCount();
+    size_t elementsCount() const;
 	OctreeElement& findNearest(Position pos);
+
+    double diameter() const;
 
     /**
      * @brief Returns minimal and maximal distance to node (to its corners)
      * @param pos Point that distance should be calculated from
      * @return
      */
-	DistToNode getDistsToNode(Position pos);
+    DistToNode getDistsToNode(Position pos) const;
 
 	/**
 	* @brief Checks if some point is inside this cell
 	* @param pos Point to test
 	* @return true if inside, false otherwise
 	*/
-	bool isInside(const Position& pos);
+    bool isInside(const Position& pos) const;
 
 	void dbgOutCoords(std::ostream& s);
 
@@ -112,7 +117,7 @@ public:
 
 	OctreeElement& getNearest(Position pos);
 	
-	const OctreeNode& root() { return *m_root; }
+    const OctreeNode& root() const { return *m_root; }
     double mass();
     const Position& massCenter();
 
@@ -150,8 +155,30 @@ private:
 class Convolution
 {
 public:
+    using Visitor = std::function<double(const Position& target, const Position& object, double mass)>;
 
+    Convolution();
+    /**
+     * @brief addScale Allow averaging with scale averagingScale when objects are farer than minDistance
+     * @param minDistance Minimal distance that alow this averaging
+     * @param averagingScale Space size of blocks where objects masses may be averaged
+     */
+    void addScale(double minDistance, double averagingScale);
+
+    /**
+     * @brief Calculate convolution of visitor v by all octree elements
+     * @param oct Octree object
+     * @param target Point where we are calculating convolution
+     * @param v Visitor function
+     * @return result of convolution
+     */
+    double convolute(const Octree& oct, const Position& target, Visitor v);
+    void sortDistsScales();
+    double findScale(double distance);
 private:
+    void addSubnodesToList(const OctreeNode* n);
+    std::vector<std::pair<double, double>> m_distsScales;
+    std::list<const OctreeNode*> m_nodesList;
 };
 
 #endif // LIBHEADER_INCLUDED

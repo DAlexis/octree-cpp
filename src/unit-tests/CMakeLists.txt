@@ -11,6 +11,7 @@ include_directories (
 
 set(EXE_SOURCES
     octree-tests.cpp
+    conv-tests.cpp
     test-utils.cpp
     test-utils.hpp
 )
