@@ -8,10 +8,11 @@
 #include <fstream>
 
 using namespace std;
+using namespace octree;
 
-TEST(OctreeNode, DistToNode)
+TEST(Node, DistToNode)
 {
-    OctreeNode n(nullptr, Position(10.0, 20.0, 30.0), 2.0);
+    Node n(nullptr, Position(10.0, 20.0, 30.0), 2.0);
 	auto d1 = n.getDistsToNode(Position(10.0, 20.0, 30.0));
 	EXPECT_NEAR(d1.farest, sqrt(3.0), 1e-6);
     EXPECT_NEAR(d1.nearest, sqrt(3.0), 1e-6);
@@ -42,12 +43,12 @@ TEST(OctreeBase, AddingWithoutEnlarge)
 	);
 	ASSERT_EQ(oct.count(), 0);
 	// Level 0
-	OctreeElement e1(-0.01, -0.01, -0.01, 1.0);
+    Element e1(-0.01, -0.01, -0.01, 1.0);
 	ASSERT_NO_THROW(oct.add(e1));
 	ASSERT_EQ(oct.count(), 1);
 
 	// Level 1
-	OctreeElement e2(0.01, 0.01, 0.01, 1.0);
+    Element e2(0.01, 0.01, 0.01, 1.0);
 	ASSERT_NO_THROW(oct.add(e2));
 	EXPECT_TRUE(oct.root().subnodes[0] != nullptr);
 	EXPECT_TRUE(oct.root().subnodes[1] == nullptr);
@@ -59,7 +60,7 @@ TEST(OctreeBase, AddingWithoutEnlarge)
 	EXPECT_TRUE(oct.root().subnodes[7] != nullptr);
 
 	// Level 2
-	OctreeElement e3(-0.011, -0.011, -0.011, 1.0);
+    Element e3(-0.011, -0.011, -0.011, 1.0);
 	ASSERT_NO_THROW(oct.add(e3));
 	ASSERT_EQ(oct.count(), 3);
 	EXPECT_TRUE(oct.root().subnodes[0]->subnodes[0] == nullptr);
@@ -71,9 +72,9 @@ TEST(OctreeBase, AddingWithoutEnlarge)
 	EXPECT_TRUE(oct.root().subnodes[0]->subnodes[6] == nullptr);
 	EXPECT_TRUE(oct.root().subnodes[0]->subnodes[7] != nullptr);
 
-	OctreeElement e4(1.0, 1.0, 1.0, 1.0);
+    Element e4(1.0, 1.0, 1.0, 1.0);
 	ASSERT_NO_THROW(oct.add(e4));
-	OctreeElement e5(-1.0, 1.0, -1.0, 1.0);
+    Element e5(-1.0, 1.0, -1.0, 1.0);
 	ASSERT_NO_THROW(oct.add(e5));
 }
 
@@ -85,7 +86,7 @@ TEST(OctreeBase, AddingEnlarging)
     );
     ASSERT_EQ(oct.count(), 0);
     // Level 0
-    OctreeElement e1(2, 2, 2, 1.0);
+    Element e1(2, 2, 2, 1.0);
     ASSERT_NO_THROW(oct.add(e1));
     ASSERT_EQ(oct.count(), 1);
     EXPECT_EQ(oct.root().center[0], 1.0);
@@ -108,11 +109,11 @@ TEST(OctreeBase, DbgOutput)
 		Position(0.0, 0.0, 0.0),
 		2
 	);
-	OctreeElement e1(-0.01, -0.01, -0.01, 1.0);
+    Element e1(-0.01, -0.01, -0.01, 1.0);
 	oct.add(e1);
-	OctreeElement e2(0.01, 0.01, 0.01, 1.0);
+    Element e2(0.01, 0.01, 0.01, 1.0);
 	oct.add(e2);
-	OctreeElement e3(-0.011, -0.011, -0.011, 1.0);
+    Element e3(-0.011, -0.011, -0.011, 1.0);
 	oct.add(e3);
 	std::ofstream file("dbg-out-test.txt", std::ios::out);
 	ASSERT_NO_THROW(oct.dbgOutCoords(file));
@@ -123,7 +124,7 @@ class OctreeAccessFixedSize : public ::testing::Test
 public:
     void addElement(const Position& pos)
     {
-        oct.add(OctreeElement(pos, 1.0));
+        oct.add(ElementValue(pos, 1.0));
         positions.push_back(pos);
     }
 	double size = 2.0;
@@ -146,7 +147,7 @@ TEST_F(OctreeAccessFixedSize, FindNearest1)
 {
 	addElement(Position(0.2, -0.8, 1.0));
 	Position target(0.1, -23, 876);
-	OctreeElement *ans = nullptr;
+    Element *ans = nullptr;
     Position *brute = &(PointsGenerator::findNearestBruteForce(target, positions));
 	ASSERT_NO_THROW(ans = & oct.getNearest(target) );
 	ASSERT_EQ(*brute, ans->pos);
@@ -156,7 +157,7 @@ TEST_F(OctreeAccessFixedSize, FindNearest4)
 {
     PointsGenerator::addGrid(4, 1.0, oct, &positions);
 	Position target(0.1, -0.8, 0.5);
-    OctreeElement *ans = nullptr;
+    Element *ans = nullptr;
     Position *brute = &(PointsGenerator::findNearestBruteForce(target, positions));
 	ASSERT_NO_THROW(ans = & oct.getNearest(target) );
 	ASSERT_EQ(*brute, ans->pos);
@@ -167,28 +168,28 @@ TEST_F(OctreeAccessFixedSize, FindNearest20)
     PointsGenerator::addGrid(2, 1.0, oct, &positions);
 	{
 		Position target(0.1, -0.8, 0.5);
-		OctreeElement *ans = nullptr;
+        Element *ans = nullptr;
         Position *brute = &(PointsGenerator::findNearestBruteForce(target, positions));
 		ASSERT_NO_THROW(ans = & oct.getNearest(target) );
 		ASSERT_EQ(*brute, ans->pos);
 	}
 	{
 		Position target(10, -678, -0.0001);
-		OctreeElement *ans = nullptr;
+        Element *ans = nullptr;
         Position *brute = &(PointsGenerator::findNearestBruteForce(target, positions));
 		ASSERT_NO_THROW(ans = & oct.getNearest(target) );
 		ASSERT_EQ(*brute, ans->pos);
 	}
 	{
 		Position target(1.0, -0.8, 0.5);
-		OctreeElement *ans = nullptr;
+        Element *ans = nullptr;
         Position *brute = &(PointsGenerator::findNearestBruteForce(target, positions));
 		ASSERT_NO_THROW(ans = & oct.getNearest(target) );
 		ASSERT_EQ(*brute, ans->pos);
 	}
 	{
 		Position target(positions.front());
-		OctreeElement *ans = nullptr;
+        Element *ans = nullptr;
         Position *brute = &(PointsGenerator::findNearestBruteForce(target, positions));
 		ASSERT_NO_THROW(ans = & oct.getNearest(target) );
 		ASSERT_EQ(*brute, ans->pos);
@@ -216,7 +217,7 @@ class OctreeAccessAutoSize : public ::testing::Test
 public:
     void addElement(const Position& pos)
     {
-        oct.add(OctreeElement(pos, 1.0));
+        oct.add(ElementValue(pos, 1.0));
         //std::cout << p.str() << std::endl;
         positions.push_back(pos);
     }
@@ -234,7 +235,7 @@ TEST_F(OctreeAccessAutoSize, FindNearest1)
 {
     addElement(Position(0.2, -0.8, 1.0));
     Position target(0.1, -23, 876);
-    OctreeElement *ans = nullptr;
+    Element *ans = nullptr;
     Position *brute = &(PointsGenerator::findNearestBruteForce(target, positions));
     ASSERT_NO_THROW(ans = & oct.getNearest(target) );
     ASSERT_EQ(*brute, ans->pos);
@@ -245,28 +246,28 @@ TEST_F(OctreeAccessAutoSize, FindNearest20)
     PointsGenerator::addGrid(2, 1.0, oct, &positions);
     {
         Position target(0.1, -0.8, 0.5);
-        OctreeElement *ans = nullptr;
+        Element *ans = nullptr;
         Position *brute = &(PointsGenerator::findNearestBruteForce(target, positions));
         ASSERT_NO_THROW(ans = & oct.getNearest(target) );
         ASSERT_EQ(*brute, ans->pos);
     }
     {
         Position target(10, -678, -0.0001);
-        OctreeElement *ans = nullptr;
+        Element *ans = nullptr;
         Position *brute = &(PointsGenerator::findNearestBruteForce(target, positions));
         ASSERT_NO_THROW(ans = & oct.getNearest(target) );
         ASSERT_EQ(*brute, ans->pos);
     }
     {
         Position target(1.0, -0.8, 0.5);
-        OctreeElement *ans = nullptr;
+        Element *ans = nullptr;
         Position *brute = &(PointsGenerator::findNearestBruteForce(target, positions));
         ASSERT_NO_THROW(ans = & oct.getNearest(target) );
         ASSERT_EQ(*brute, ans->pos);
     }
     {
         Position target(positions.front());
-        OctreeElement *ans = nullptr;
+        Element *ans = nullptr;
         Position *brute = &(PointsGenerator::findNearestBruteForce(target, positions));
         ASSERT_NO_THROW(ans = & oct.getNearest(target) );
         ASSERT_EQ(*brute, ans->pos);
@@ -282,22 +283,22 @@ TEST(MassCenter, SimpleCases)
         Octree oct;
         ASSERT_NO_THROW(oct.mass());
         ASSERT_EQ(oct.mass(), 0.0);
-        oct.add(OctreeElement(Position(36.0, -12.0, -10), 321.0));
+        oct.add(ElementValue(Position(36.0, -12.0, -10), 321.0));
         ASSERT_EQ(oct.mass(), 321.0);
         ASSERT_EQ(oct.massCenter(), Position(36.0, -12.0, -10));
     }
     {
         Octree oct;
-        oct.add(OctreeElement(Position(2.0, 2.0, -8.0), 1.0));
-        oct.add(OctreeElement(Position(0.0, 0.0, 0.0), 1.0));
-        oct.add(OctreeElement(Position(7.0, 10.0, -4.0), 1.0));
+        oct.add(ElementValue(Position(2.0, 2.0, -8.0), 1.0));
+        oct.add(ElementValue(Position(0.0, 0.0, 0.0), 1.0));
+        oct.add(ElementValue(Position(7.0, 10.0, -4.0), 1.0));
         ASSERT_EQ(oct.massCenter(), Position(3.0, 4.0, -4.0));
     }
     {
         Octree oct;
-        oct.add(OctreeElement(Position(2.0, 3.0, -8.0), 3.0));
-        oct.add(OctreeElement(Position(0.0, 0.0, 0.0), 1.0));
-        oct.add(OctreeElement(Position(7.0, 10.0, -4.0), 1.0));
+        oct.add(ElementValue(Position(2.0, 3.0, -8.0), 3.0));
+        oct.add(ElementValue(Position(0.0, 0.0, 0.0), 1.0));
+        oct.add(ElementValue(Position(7.0, 10.0, -4.0), 1.0));
         ASSERT_EQ(oct.massCenter(), Position(2.6, 3.8, -5.6));
     }
 }

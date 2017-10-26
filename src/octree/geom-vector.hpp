@@ -128,7 +128,6 @@ public:
         return ! (*this == right);
     }
 
-    /// Vector product
     GeomVector<dim> operator*(double right) const
     {
         GeomVector<dim> result;
@@ -137,8 +136,10 @@ public:
         return result;
     }
 
-    /// Scalar product
-    double operator^(const GeomVector<dim>& right) const
+    /**
+     * @brief Scalar product
+     */
+    double operator*(const GeomVector<dim>& right) const
     {
     	double result = 0;
     	for (int i=0; i<dim; i++)
@@ -147,8 +148,12 @@ public:
     	return result;
     }
 
-    GeomVector<dim> operator*(const GeomVector<dim>& right) const
+    /**
+     * @brief Vector product
+     */
+    GeomVector<dim> operator%(const GeomVector<dim>& right) const
     {
+        static_assert(dim != 3, "Vector product works only for dimension = 3!");
     	GeomVector<dim> result;
     	result[0] =   (*this)[1] * right[2] - (*this)[2] * right[1];
 		result[1] = - (*this)[0] * right[2] + (*this)[2] * right[0];

@@ -12,7 +12,7 @@ void PointsGenerator::addGrid(int n, double size, Octree& oct, std::vector<Posit
                     -size/2.0 + size / (n-1) * j,
                     -size/2.0 + size / (n-1) * k
                 );
-                oct.add(OctreeElement(p, 1.0));
+                oct.add(ElementValue(p, 1.0));
                 if (positions)
                     positions->push_back(p);
             }

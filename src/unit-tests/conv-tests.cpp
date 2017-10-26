@@ -7,6 +7,7 @@
 #include <iostream>
 
 using namespace std;
+using namespace octree;
 
 TEST(ConvolutionInternals, FindScales)
 {
@@ -27,12 +28,12 @@ class ConvolutionTests : public ::testing::Test
 public:
     void addSomePoints()
     {
-        oct.add(OctreeElement(Position(2.0, 3.0, -8.0), 3.0));
-        oct.add(OctreeElement(Position(0.0, 0.0, 0.0), 1.0));
-        oct.add(OctreeElement(Position(8.0, 9.0, 9.0), 1.0));
-        oct.add(OctreeElement(Position(-3.0, -9.0, -4.0), 2.0));
-        oct.add(OctreeElement(Position(-7.0, -9.0, -4.0), 1.0));
-        oct.add(OctreeElement(Position(-1.0, -4.0, -2.0), 1.0));
+        oct.add(ElementValue(Position(2.0, 3.0, -8.0), 3.0));
+        oct.add(ElementValue(Position(0.0, 0.0, 0.0), 1.0));
+        oct.add(ElementValue(Position(8.0, 9.0, 9.0), 1.0));
+        oct.add(ElementValue(Position(-3.0, -9.0, -4.0), 2.0));
+        oct.add(ElementValue(Position(-7.0, -9.0, -4.0), 1.0));
+        oct.add(ElementValue(Position(-1.0, -4.0, -2.0), 1.0));
     }
 
     int callsCounter = 0;

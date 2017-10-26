@@ -12,6 +12,8 @@
 #include <chrono>
 #include <vector>
 
+using namespace octree;
+
 struct TimeMesurment
 {
     template<typename F, typename ...Args>

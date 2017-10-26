@@ -5,6 +5,8 @@
 #include <list>
 #include <algorithm>
 
+using namespace octree;
+
 SubdivisionPos::SubdivisionPos()
 {
 }
@@ -16,7 +18,7 @@ SubdivisionPos::SubdivisionPos(Position center, Position point)
 }
 
 
-OctreeNode::OctreeNode(Octree* octree, SubdivisionPos subdivision, OctreeNode* parent) :
+Node::Node(Octree* octree, SubdivisionPos subdivision, Node* parent) :
 	parent(parent),
 	subdivisionPos(subdivision),
 	subdivisionLevel(parent->subdivisionLevel + 1),
@@ -32,18 +34,18 @@ OctreeNode::OctreeNode(Octree* octree, SubdivisionPos subdivision, OctreeNode* p
 	}
 }
 
-OctreeNode::OctreeNode(Octree* octree, Position center, double size) :
+Node::Node(Octree* octree, Position center, double size) :
         subdivisionLevel(0), center(center), size(size), m_octree(octree)
 {
 }
 
-void OctreeNode::addElement(const OctreeElement& e)
+void Node::addElement(const Element& e)
 {
 	if (!hasSubnodes)
 	{
 		if (element == nullptr)
 		{
-			element.reset(new OctreeElement(e));
+            element.reset(new Element(e));
 			element->parent = this;
             if (m_octree->centerMassUpdatingEnabled())
                 updateMassCenterReqursiveUp();
@@ -62,7 +64,7 @@ void OctreeNode::addElement(const OctreeElement& e)
 }
 
 
-size_t OctreeNode::elementsCount() const
+size_t Node::elementsCount() const
 {
 	if (!hasSubnodes && element != nullptr)
 		return 1;
@@ -76,7 +78,7 @@ size_t OctreeNode::elementsCount() const
 	return count;
 }
 
-double OctreeNode::diameter() const
+double Node::diameter() const
 {
     if (element == nullptr)
         return size * sqrt(3);
@@ -84,7 +86,7 @@ double OctreeNode::diameter() const
         return 0.0;
 }
 
-DistToNode OctreeNode::getDistsToNode(Position pos) const
+DistToNode Node::getDistsToNode(Position pos) const
 {
 	DistToNode result;
 	if (element != nullptr)
@@ -116,7 +118,7 @@ DistToNode OctreeNode::getDistsToNode(Position pos) const
 	return result;
 }
 
-bool OctreeNode::isInside(const Position& pos) const
+bool Node::isInside(const Position& pos) const
 {
     double hs = size / 2.0;
     for (int i=0; i<3; i++)
@@ -130,7 +132,7 @@ bool OctreeNode::isInside(const Position& pos) const
     return true;
 }
 
-void OctreeNode::dbgOutCoords(std::ostream& s)
+void Node::dbgOutCoords(std::ostream& s)
 {
 	for (int x = -1; x <=1; x += 2)
 		for (int y = -1; y <=1; y += 2)
@@ -147,7 +149,7 @@ void OctreeNode::dbgOutCoords(std::ostream& s)
 	}
 }
 
-void OctreeNode::updateMassCenter()
+void Node::updateMassCenter()
 {
     if (element != nullptr)
     {
@@ -171,14 +173,14 @@ void OctreeNode::updateMassCenter()
     massCenter /= mass;
 }
 
-void OctreeNode::updateMassCenterReqursiveUp()
+void Node::updateMassCenterReqursiveUp()
 {
     updateMassCenter();
     if (parent != nullptr)
         parent->updateMassCenterReqursiveUp();
 }
 
-void OctreeNode::updateMassCenterReqursiveDown()
+void Node::updateMassCenterReqursiveDown()
 {
     /// @todo May be optimized by using one cycle for calls and sum calculations, but this will duplicate code
     for (int i=0; i<8; i++)
@@ -187,14 +189,14 @@ void OctreeNode::updateMassCenterReqursiveDown()
     updateMassCenter();
 }
 
-void OctreeNode::giveElementToSubnodes(const OctreeElement& e)
+void Node::giveElementToSubnodes(const Element& e)
 {
 	SubdivisionPos targerSubdivision(center, e.pos);
 
 	int index = targerSubdivision.index();
 	if (subnodes[index] == nullptr)
 	{
-        subnodes[index].reset(new OctreeNode(m_octree, targerSubdivision, this));
+        subnodes[index].reset(new Node(m_octree, targerSubdivision, this));
 		hasSubnodes = true;
 	}
 	subnodes[index]->addElement(e);
@@ -215,7 +217,7 @@ Octree::Octree(double initialSize) :
 {
 }
 
-void Octree::add(const OctreeElement& e)
+void Octree::add(const Element& e)
 {
     // Creating foor if no
 	if (m_root == nullptr)
@@ -227,7 +229,7 @@ void Octree::add(const OctreeElement& e)
 		}
 
 		m_root.reset(
-            new OctreeNode(this, m_center, m_initialSize)
+            new Node(this, m_center, m_initialSize)
 		);
 	}
     // Enlarging root cell
@@ -246,13 +248,13 @@ size_t Octree::count()
 		return 0;
 }
 
-OctreeElement& Octree::getNearest(Position pos)
+Element& Octree::getNearest(Position pos)
 {
 	using namespace std;
 	if (m_root == nullptr)
 		throw(std::runtime_error("Octree is empty"));
 	// ndp = node-distance pair
-	using ndp = pair<const OctreeNode*, DistToNode>;
+    using ndp = pair<const Node*, DistToNode>;
 	list<ndp> nodes;
 	list<ndp> nodesNext;
 	nodes.push_back(ndp(m_root.get(), m_root->getDistsToNode(pos)));
@@ -281,7 +283,7 @@ OctreeElement& Octree::getNearest(Position pos)
 		// Subdivision
 		for (auto it=nodes.begin(); it!=nodes.end(); it++)
 		{
-			const OctreeNode& n = *(it->first);
+            const Node& n = *(it->first);
 			if (n.element != nullptr)
 			{
 				nodesNext.push_back(*it);
@@ -300,7 +302,7 @@ OctreeElement& Octree::getNearest(Position pos)
 
 	// const_cast is not bad, because const modifier used only for code above
 	// in this function, and its job is done
-	return const_cast<OctreeElement&>(*(nodes.front().first->element));
+    return const_cast<Element&>(*(nodes.front().first->element));
 }
 
 double Octree::mass()
@@ -347,7 +349,7 @@ void Octree::enlargeSpaceIteration(const Position& p)
         	newRootCenter.x[i] = cx + (p.x[i] > cx ? dcx : -dcx);
 	}
 	SubdivisionPos subPos(newRootCenter, m_root->center);
-    std::unique_ptr<OctreeNode> n(new OctreeNode(this, newRootCenter, m_root->size * 2));
+    std::unique_ptr<Node> n(new Node(this, newRootCenter, m_root->size * 2));
 	n->hasSubnodes = true;
 	n->subdivisionLevel = m_root->subdivisionLevel - 1;
 	n->subdivisionPos = subPos;
@@ -400,7 +402,7 @@ double Convolution::convolute(const Octree& oct, const Position& target, Visitor
          m_nodesList.pop_front()
     )
     {
-        const OctreeNode *n = m_nodesList.front();
+        const Node *n = m_nodesList.front();
         if (n->isInside(target))
         {
             if (n->element != nullptr)
@@ -452,11 +454,11 @@ double Convolution::findScale(double distance)
     return m_distsScales[l].second;
 }
 
-void Convolution::addSubnodesToList(const OctreeNode* n)
+void Convolution::addSubnodesToList(const Node* n)
 {
     for (int i=0; i<8; i++)
     {
-        const OctreeNode *subnode = n->subnodes[i].get();
+        const Node *subnode = n->subnodes[i].get();
         if (subnode != nullptr)
             m_nodesList.push_back(subnode);
     }

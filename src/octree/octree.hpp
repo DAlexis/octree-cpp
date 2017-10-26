@@ -1,5 +1,5 @@
-#ifndef LIBHEADER_INCLUDED
-#define LIBHEADER_INCLUDED
+#ifndef OCTREE_HPP_INCLUDED
+#define OCTREE_HPP_INCLUDED
 
 #include "geom-vector.hpp"
 
@@ -11,25 +11,42 @@
 #include <memory>
 #include <cmath>
 
-class OctreeNode;
+namespace octree {
+
+class Node;
 class Octree;
 
-struct OctreeElement
+/**
+ * @brief Octree element with reference to its value
+ */
+struct Element
 {
-	OctreeElement(const Position& p, double value = 0.0) :
+    Element(const Position& p, double& value) :
 		pos(p),
-		value(value)
+        value(value)
 	{ }
-	OctreeElement(double x = 0.0, double y = 0.0, double z = 0.0, double value = 0.0) :
+    Element(double x = 0.0, double y = 0.0, double z = 0.0, double value = 0.0) :
 		pos(x, y, z),
 		value(value)
 	{ }
 	Position pos;
-	double value = 0.0;
+    double &value;
 	bool isDirty = false;
 	bool toRemove = false;
 
-	OctreeNode* parent = nullptr;
+    Node* parent = nullptr;
+};
+
+/**
+ * @brief Octree element storing its value inside
+ */
+struct ElementValue : public Element
+{
+    ElementValue(const Position& p, double value = 0.0) :
+        Element(p, storedValue),
+        storedValue(value)
+    {}
+    double storedValue;
 };
 
 struct SubdivisionPos
@@ -50,14 +67,14 @@ struct DistToNode
 	double nearest = 0.0, farest = 0.0;
 };
 
-class OctreeNode
+class Node
 {
 public:
-    OctreeNode(Octree* octree, SubdivisionPos subdivision, OctreeNode* parent);
-    OctreeNode(Octree* octree, Position center, double size);
-	void addElement(const OctreeElement& e);
+    Node(Octree* octree, SubdivisionPos subdivision, Node* parent);
+    Node(Octree* octree, Position center, double size);
+    void addElement(const Element& e);
     size_t elementsCount() const;
-	OctreeElement& findNearest(Position pos);
+    Element& findNearest(Position pos);
 
     double diameter() const;
 
@@ -77,8 +94,8 @@ public:
 
 	void dbgOutCoords(std::ostream& s);
 
-	std::unique_ptr<OctreeElement> element;
-	OctreeNode* parent = nullptr;
+    std::unique_ptr<Element> element;
+    Node* parent = nullptr;
 	
 	SubdivisionPos subdivisionPos;
 	int subdivisionLevel = 0;
@@ -92,7 +109,7 @@ public:
     Position massCenter;
     double mass;
 
-	std::unique_ptr<OctreeNode> subnodes[8];
+    std::unique_ptr<Node> subnodes[8];
 
     void updateMassCenterReqursiveUp();
     void updateMassCenterReqursiveDown();
@@ -100,7 +117,7 @@ public:
 
 private:
 
-	void giveElementToSubnodes(const OctreeElement& e);
+    void giveElementToSubnodes(const Element& e);
     Octree* m_octree = nullptr;
 };
 
@@ -109,15 +126,15 @@ class Octree
 public:
 	Octree(double initialSize = 1.0);
 	Octree(Position center, double initialSize = 1.0);
-	void add(const OctreeElement& e);
+    void add(const Element& e);
 	void update();
 	size_t count();
 	
 	void dbgOutCoords(std::ostream& s);
 
-	OctreeElement& getNearest(Position pos);
+    Element& getNearest(Position pos);
 	
-    const OctreeNode& root() const { return *m_root; }
+    const Node& root() const { return *m_root; }
     double mass();
     const Position& massCenter();
 
@@ -129,7 +146,7 @@ private:
 	void enlargeSpaceIteration(const Position& p);
 	bool isPointInsideRoot(const Position& p);
 
-	std::unique_ptr<OctreeNode> m_root;
+    std::unique_ptr<Node> m_root;
 	Position m_center;
 	double m_initialSize;
 	bool m_centerIsSet;
@@ -176,9 +193,11 @@ public:
     void sortDistsScales();
     double findScale(double distance);
 private:
-    void addSubnodesToList(const OctreeNode* n);
+    void addSubnodesToList(const Node* n);
     std::vector<std::pair<double, double>> m_distsScales;
-    std::list<const OctreeNode*> m_nodesList;
+    std::list<const Node*> m_nodesList;
 };
+
+}
 
 #endif // LIBHEADER_INCLUDED
