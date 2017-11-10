@@ -28,12 +28,12 @@ class ConvolutionTests : public ::testing::Test
 public:
     void addSomePoints()
     {
-        oct.add(ElementValue(Position(2.0, 3.0, -8.0), 3.0));
-        oct.add(ElementValue(Position(0.0, 0.0, 0.0), 1.0));
-        oct.add(ElementValue(Position(8.0, 9.0, 9.0), 1.0));
-        oct.add(ElementValue(Position(-3.0, -9.0, -4.0), 2.0));
-        oct.add(ElementValue(Position(-7.0, -9.0, -4.0), 1.0));
-        oct.add(ElementValue(Position(-1.0, -4.0, -2.0), 1.0));
+        oct.add(make_shared<ElementValue>(Position(2.0, 3.0, -8.0), 3.0));
+        oct.add(make_shared<ElementValue>(Position(0.0, 0.0, 0.0), 1.0));
+        oct.add(make_shared<ElementValue>(Position(8.0, 9.0, 9.0), 1.0));
+        oct.add(make_shared<ElementValue>(Position(-3.0, -9.0, -4.0), 2.0));
+        oct.add(make_shared<ElementValue>(Position(-7.0, -9.0, -4.0), 1.0));
+        oct.add(make_shared<ElementValue>(Position(-1.0, -4.0, -2.0), 1.0));
     }
 
     int callsCounter = 0;
@@ -71,3 +71,4 @@ TEST_F(ConvolutionTests, ConvoluteOneScalingZone)
     ASSERT_EQ(conv.convolute(oct, Position(9.0, 9.0, 9.0), massSumVisitor), somePointsMass);
     ASSERT_LT(callsCounter, cc);
 }
+

@@ -21,11 +21,12 @@ class Octree;
  */
 struct Element
 {
+    virtual ~Element() {}
     Element(const Position& p, double& value) :
 		pos(p),
         value(value)
 	{ }
-    Element(double x = 0.0, double y = 0.0, double z = 0.0, double value = 0.0) :
+    Element(double x, double y, double z, double& value) :
 		pos(x, y, z),
 		value(value)
 	{ }
@@ -44,6 +45,10 @@ struct ElementValue : public Element
 {
     ElementValue(const Position& p, double value = 0.0) :
         Element(p, storedValue),
+        storedValue(value)
+    {}
+    ElementValue(double x, double y, double z, double value = 0.0) :
+        Element(x, y, z, storedValue),
         storedValue(value)
     {}
     double storedValue;
@@ -67,12 +72,19 @@ struct DistToNode
 	double nearest = 0.0, farest = 0.0;
 };
 
+/**
+ * @brief The octree Node class.
+ * Node has 3 states:
+ *  - Empty =>           Element == nullptr, subnodes[i] == nullptr
+ *  - Holds 1 element => Element != nullptr, subnodes[i] == nullptr
+ *  - Holds subnodes =>  Element == nullptr, subnodes[i] != nullptr
+ */
 class Node
 {
 public:
     Node(Octree* octree, SubdivisionPos subdivision, Node* parent);
     Node(Octree* octree, Position center, double size);
-    void addElement(const Element& e);
+    void addElement(std::shared_ptr<Element> e);
     size_t elementsCount() const;
     Element& findNearest(Position pos);
 
@@ -94,7 +106,7 @@ public:
 
 	void dbgOutCoords(std::ostream& s);
 
-    std::unique_ptr<Element> element;
+    std::shared_ptr<Element> element;
     Node* parent = nullptr;
 	
 	SubdivisionPos subdivisionPos;
@@ -117,7 +129,7 @@ public:
 
 private:
 
-    void giveElementToSubnodes(const Element& e);
+    void giveElementToSubnodes(std::shared_ptr<Element> e);
     Octree* m_octree = nullptr;
 };
 
@@ -126,7 +138,7 @@ class Octree
 public:
 	Octree(double initialSize = 1.0);
 	Octree(Position center, double initialSize = 1.0);
-    void add(const Element& e);
+    void add(std::shared_ptr<Element> e);
 	void update();
 	size_t count();
 	
