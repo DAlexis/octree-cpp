@@ -36,15 +36,39 @@ public:
         oct.add(make_shared<ElementValue>(Position(-1.0, -4.0, -2.0), 1.0));
     }
 
+    void addManyPoints()
+    {
+        PointsGenerator::addGrid(10, 10, oct, &positions);
+    }
+
+    double getCoulombFieldBruteForce(const Position& target)
+    {
+        double result = 0;
+        for (auto &it: positions)
+        {
+            result += coulomb(target, it, 1.0);
+        }
+        return result;
+    }
+
     int callsCounter = 0;
     double somePointsMass = 9;
+
     Octree oct{Position(0.0, 0.0, 0.0), 20};
+
+    // Vector for Coulomb
+    std::vector<Position> positions;
     Convolution conv;
     Convolution::Visitor massSumVisitor =
         [this](const Position& target, const Position& object, double mass)
         {
             callsCounter++;
             return mass;
+        };
+    Convolution::Visitor coulomb =
+        [this](const Position& target, const Position& object, double mass)
+        {
+            return mass/(target-object).len();
         };
 };
 
@@ -70,5 +94,48 @@ TEST_F(ConvolutionTests, ConvoluteOneScalingZone)
     callsCounter = 0;
     ASSERT_EQ(conv.convolute(oct, Position(9.0, 9.0, 9.0), massSumVisitor), somePointsMass);
     ASSERT_LT(callsCounter, cc);
+}
+
+TEST_F(ConvolutionTests, ConvoluteCoulomb1)
+{
+    addManyPoints();
+    Position p1 = {1.123, 2.345, 3.456};
+    double realField = getCoulombFieldBruteForce(p1);
+    double convField = conv.convolute(oct, p1, coulomb);
+    ASSERT_NEAR(realField, convField, 1e-8) << "Convolution gives bad ansver with ideal precision";
+
+    conv.addScale(5, 3);
+    convField = conv.convolute(oct, p1, coulomb);
+    ASSERT_NEAR(realField, convField, 1e-3*realField) << "Convolution result has bad precision";
+    //cout << realField << " " << convField << endl;
+
+    conv.addScale(7, 10);
+    convField = conv.convolute(oct, p1, coulomb);
+    ASSERT_NEAR(realField, convField, 3e-3*realField) << "Convolution result has bad precision";
+    //cout << realField << " " << convField << endl;
+}
+
+TEST_F(ConvolutionTests, ConvoluteCoulomb2)
+{
+    addManyPoints();
+    Position p1 = {11.23, -23.45, -34.56};
+    double realField = getCoulombFieldBruteForce(p1);
+    double convField = conv.convolute(oct, p1, coulomb);
+    ASSERT_NEAR(realField, convField, 1e-8) << "Convolution gives bad ansver with ideal precision";
+
+    conv.addScale(5, 3);
+    convField = conv.convolute(oct, p1, coulomb);
+    ASSERT_NEAR(realField, convField, 1e-3*realField) << "Convolution result has bad precision";
+    //cout << realField << " " << convField << endl;
+
+    conv.addScale(7, 10);
+    convField = conv.convolute(oct, p1, coulomb);
+    ASSERT_NEAR(realField, convField, 3e-3*realField) << "Convolution result has bad precision";
+    //cout << realField << " " << convField << endl;
+
+    conv.addScale(10, 1000);
+    convField = conv.convolute(oct, p1, coulomb);
+    ASSERT_NEAR(realField, convField, 3e-3*realField) << "Convolution result has bad precision";
+    //cout << realField << " " << convField << endl;
 }
 
