@@ -11,6 +11,7 @@
 #include "octree.hpp"
 #include <chrono>
 #include <vector>
+#include <cmath>
 
 using namespace octree;
 
@@ -33,5 +34,23 @@ public:
     static void addGrid(int n, double size, Octree& oct, std::vector<Position>* positions);
     static Position& findNearestBruteForce(const Position& pos, std::vector<Position>& positions);
 };
+
+class FullEField
+{
+public:
+    double E[3] = {0.0, 0.0, 0.0};
+    double potential = 0.0;
+
+    FullEField& operator+=(const FullEField& right)
+    {
+        E[0] += right.E[0];
+        E[1] += right.E[1];
+        E[2] += right.E[2];
+        potential += right.potential;
+        return *this;
+    }
+};
+
+#define ASSERT_NEAR_RELATIVE(a, b, err)    ASSERT_NEAR((a), (b), fabs(err*a))
 
 #endif /* UNIT_TESTS_TEST_UTILS_HPP_ */

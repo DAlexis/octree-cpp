@@ -10,6 +10,7 @@
 
 #include <memory>
 #include <cmath>
+#include <algorithm>
 
 namespace octree {
 
@@ -181,18 +182,26 @@ private:
     Octree& m_octree;
 };
 
+template<typename ResultType = double>
 class Convolution
 {
 public:
-    using Visitor = std::function<double(const Position& target, const Position& object, double mass)>;
+    using Visitor = std::function<ResultType(const Position& target, const Position& object, double mass)>;
 
-    Convolution();
+    Convolution()
+    {
+        addScale(0.0, 0.0);
+    }
+
     /**
      * @brief addScale Allow averaging with scale averagingScale when objects are farer than minDistance
      * @param minDistance Minimal distance that alow this averaging
      * @param averagingScale Space size of blocks where objects masses may be averaged
      */
-    void addScale(double minDistance, double averagingScale);
+    void addScale(double minDistance, double averagingScale)
+    {
+        m_distsScales.push_back(std::pair<double, double>(minDistance, averagingScale));
+    }
 
     /**
      * @brief Calculate convolution of visitor v by all octree elements
@@ -201,11 +210,79 @@ public:
      * @param v Visitor function
      * @return result of convolution
      */
-    double convolute(const Octree& oct, const Position& target, Visitor v);
-    void sortDistsScales();
-    double findScale(double distance);
+    ResultType convolute(const Octree& oct, const Position& target, Visitor v)
+    {
+        sortDistsScales();
+        m_nodesList.clear();
+        ResultType result = ResultType(); // TODO: check this point
+        for (
+             m_nodesList.push_back(&oct.root());
+             m_nodesList.size() != 0;
+             m_nodesList.pop_front()
+        )
+        {
+            const Node *n = m_nodesList.front();
+            if (n->isInside(target))
+            {
+                if (n->element != nullptr)
+                {
+                    // We have only one object in cube with point target, so we can ise directly its mass and center
+                    result += v(target, n->massCenter, n->mass);
+                } else {
+                    // Node we located in has subnodes, lets devide it
+                    addSubnodesToList(n);
+                }
+                continue;
+            }
+            DistToNode d = n->getDistsToNode(target);
+            double scale = findScale(d.nearest);
+            if (n->diameter() <= scale)
+            {
+                // We can use averaging over this node
+                result += v(target, n->massCenter, n->mass);
+            } else {
+                // Node is too large, so we should devide it
+                addSubnodesToList(n);
+            }
+        }
+        return result;
+    }
+
 private:
-    void addSubnodesToList(const Node* n);
+    void sortDistsScales()
+    {
+        std::sort(m_distsScales.begin(), m_distsScales.end(),
+            [](const std::pair<double, double> p1, std::pair<double, double> p2)
+            { return p1.first < p2.first; }
+        );
+    }
+
+    double findScale(double distance)
+    {
+        if (distance >= m_distsScales.back().first)
+            return m_distsScales.back().second;
+        int l = 0, r = m_distsScales.size() - 1;
+        int c = (l+r) / 2;
+        while (r-l > 1)
+        {
+            if (m_distsScales[c].first <= distance)
+                l = c;
+            else
+                r = c;
+            c = (l+r) / 2;
+        }
+        return m_distsScales[l].second;
+    }
+
+    void addSubnodesToList(const Node* n)
+    {
+        for (int i=0; i<8; i++)
+        {
+            const Node *subnode = n->subnodes[i].get();
+            if (subnode != nullptr)
+                m_nodesList.push_back(subnode);
+        }
+    }
     std::vector<std::pair<double, double>> m_distsScales;
     std::list<const Node*> m_nodesList;
 };

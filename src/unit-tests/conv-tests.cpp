@@ -8,10 +8,10 @@
 
 using namespace std;
 using namespace octree;
-
+/*
 TEST(ConvolutionInternals, FindScales)
 {
-    Convolution c;
+    Convolution<double> c;
     c.addScale(20, 2);
     c.addScale(10, 1);
     c.addScale(50, 5);
@@ -21,7 +21,7 @@ TEST(ConvolutionInternals, FindScales)
     ASSERT_EQ(c.findScale(15), 1);
     ASSERT_EQ(c.findScale(90), 5);
     ASSERT_EQ(c.findScale(31), 3);
-}
+}*/
 
 class ConvolutionTests : public ::testing::Test
 {
@@ -58,14 +58,14 @@ public:
 
     // Vector for Coulomb
     std::vector<Position> positions;
-    Convolution conv;
-    Convolution::Visitor massSumVisitor =
+    Convolution<double> conv;
+    Convolution<double>::Visitor massSumVisitor =
         [this](const Position& target, const Position& object, double mass)
         {
             callsCounter++;
             return mass;
         };
-    Convolution::Visitor coulomb =
+    Convolution<double>::Visitor coulomb =
         [this](const Position& target, const Position& object, double mass)
         {
             return mass/(target-object).len();
@@ -139,3 +139,84 @@ TEST_F(ConvolutionTests, ConvoluteCoulomb2)
     //cout << realField << " " << convField << endl;
 }
 
+
+class ConvolutionTestsTempated : public ::testing::Test
+{
+public:
+    void addManyPoints()
+    {
+        PointsGenerator::addGrid(10, 10, oct, &positions);
+    }
+
+    FullEField getCoulombFieldBruteForce(const Position& target)
+    {
+        FullEField result;
+        for (auto &it: positions)
+        {
+            result += coulomb(target, it, 1.0);
+        }
+        return result;
+    }
+
+    int callsCounter = 0;
+    double somePointsMass = 9;
+
+    Octree oct{Position(0.0, 0.0, 0.0), 20};
+
+    // Vector for Coulomb
+    std::vector<Position> positions;
+    Convolution<FullEField> conv;
+
+    Convolution<FullEField>::Visitor coulomb =
+        [this](const Position& target, const Position& object, double mass)
+        {
+            FullEField result;
+            double dist = (target-object).len();
+            double dist3 = dist*dist*dist;
+            double tmp = mass/dist3;
+            result.potential = mass/dist;
+            result.E[0] = (target - object).x[0]*tmp;
+            result.E[1] = (target - object).x[1]*tmp;
+            result.E[2] = (target - object).x[2]*tmp;
+            return result;
+        };
+};
+
+
+TEST_F(ConvolutionTestsTempated, ConvoluteCoulomb1)
+{
+    addManyPoints();
+    Position p1 = {4.23, -3.45, -1.56};
+    FullEField realField = getCoulombFieldBruteForce(p1);
+    FullEField convField = conv.convolute(oct, p1, coulomb);
+
+    ASSERT_NEAR_RELATIVE(realField.E[0], convField.E[0], 1e-3);
+    ASSERT_NEAR_RELATIVE(realField.E[1], convField.E[1], 1e-3);
+    ASSERT_NEAR_RELATIVE(realField.E[2], convField.E[2], 1e-3);
+    ASSERT_NEAR_RELATIVE(realField.potential, convField.potential, 1e-3);
+
+    conv.addScale(4, 3);
+    convField = conv.convolute(oct, p1, coulomb);
+
+    ASSERT_NEAR_RELATIVE(realField.E[0], convField.E[0], 5e-3);
+    ASSERT_NEAR_RELATIVE(realField.E[1], convField.E[1], 5e-3);
+    ASSERT_NEAR_RELATIVE(realField.E[2], convField.E[2], 5e-3);
+    ASSERT_NEAR_RELATIVE(realField.potential, convField.potential, 5e-3);
+
+    conv.addScale(7, 11);
+    convField = conv.convolute(oct, p1, coulomb);
+
+    ASSERT_NEAR_RELATIVE(realField.E[0], convField.E[0], 1e-2);
+    ASSERT_NEAR_RELATIVE(realField.E[1], convField.E[1], 1e-2);
+    ASSERT_NEAR_RELATIVE(realField.E[2], convField.E[2], 1e-2);
+    ASSERT_NEAR_RELATIVE(realField.potential, convField.potential, 1e-2);
+
+    p1 = {14.23, -23.45, -1.56};
+    realField = getCoulombFieldBruteForce(p1);
+    conv.addScale(10, 30);
+    convField = conv.convolute(oct, p1, coulomb);
+    ASSERT_NEAR_RELATIVE(realField.E[0], convField.E[0], 1e-1);
+    ASSERT_NEAR_RELATIVE(realField.E[1], convField.E[1], 1e-1);
+    ASSERT_NEAR_RELATIVE(realField.E[2], convField.E[2], 1e-1);
+    ASSERT_NEAR_RELATIVE(realField.potential, convField.potential, 1e-1);
+}
