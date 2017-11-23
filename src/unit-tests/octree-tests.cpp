@@ -119,6 +119,37 @@ TEST(OctreeBase, DbgOutput)
 	ASSERT_NO_THROW(oct.dbgOutCoords(file));
 }
 
+class ElementWithRefCount : public ElementValue
+{
+public:
+    ElementWithRefCount(double& refCount, double x, double y, double z, double v):
+        ElementValue(x, y, z, v),
+        refCount(refCount)
+    {
+        refCount++;
+    }
+    ~ElementWithRefCount() { refCount--; }
+
+    double& refCount;
+};
+
+TEST(OctreeBase, Clear)
+{
+    double rc=0;
+
+    Octree oct(
+        Position(0.0, 0.0, 0.0),
+        2
+    );
+
+    oct.add(make_shared<ElementWithRefCount>(rc, -0.01, -0.01, -0.01, 1.0));
+    oct.add(make_shared<ElementWithRefCount>(rc, 0.01, 0.01, 0.01, 1.0));
+    oct.add(make_shared<ElementWithRefCount>(rc, -0.011, -0.011, -0.011, 1.0));
+    ASSERT_EQ(rc, 3);
+    ASSERT_NO_THROW(oct.clear());
+    ASSERT_EQ(rc, 0);
+}
+
 class OctreeAccessFixedSize : public ::testing::Test
 {
 public:
@@ -147,7 +178,7 @@ TEST_F(OctreeAccessFixedSize, FindNearest1)
 {
 	addElement(Position(0.2, -0.8, 1.0));
 	Position target(0.1, -23, 876);
-    Element *ans = nullptr;
+    const Element *ans = nullptr;
     Position *brute = &(PointsGenerator::findNearestBruteForce(target, positions));
 	ASSERT_NO_THROW(ans = & oct.getNearest(target) );
 	ASSERT_EQ(*brute, ans->pos);
@@ -157,7 +188,7 @@ TEST_F(OctreeAccessFixedSize, FindNearest4)
 {
     PointsGenerator::addGrid(4, 1.0, oct, &positions);
 	Position target(0.1, -0.8, 0.5);
-    Element *ans = nullptr;
+    const Element *ans = nullptr;
     Position *brute = &(PointsGenerator::findNearestBruteForce(target, positions));
 	ASSERT_NO_THROW(ans = & oct.getNearest(target) );
 	ASSERT_EQ(*brute, ans->pos);
@@ -168,28 +199,28 @@ TEST_F(OctreeAccessFixedSize, FindNearest20)
     PointsGenerator::addGrid(2, 1.0, oct, &positions);
 	{
 		Position target(0.1, -0.8, 0.5);
-        Element *ans = nullptr;
+        const Element *ans = nullptr;
         Position *brute = &(PointsGenerator::findNearestBruteForce(target, positions));
 		ASSERT_NO_THROW(ans = & oct.getNearest(target) );
 		ASSERT_EQ(*brute, ans->pos);
 	}
 	{
 		Position target(10, -678, -0.0001);
-        Element *ans = nullptr;
+        const Element *ans = nullptr;
         Position *brute = &(PointsGenerator::findNearestBruteForce(target, positions));
 		ASSERT_NO_THROW(ans = & oct.getNearest(target) );
 		ASSERT_EQ(*brute, ans->pos);
 	}
 	{
 		Position target(1.0, -0.8, 0.5);
-        Element *ans = nullptr;
+        const Element *ans = nullptr;
         Position *brute = &(PointsGenerator::findNearestBruteForce(target, positions));
 		ASSERT_NO_THROW(ans = & oct.getNearest(target) );
 		ASSERT_EQ(*brute, ans->pos);
 	}
 	{
 		Position target(positions.front());
-        Element *ans = nullptr;
+        const Element *ans = nullptr;
         Position *brute = &(PointsGenerator::findNearestBruteForce(target, positions));
 		ASSERT_NO_THROW(ans = & oct.getNearest(target) );
 		ASSERT_EQ(*brute, ans->pos);
@@ -231,11 +262,17 @@ TEST_F(OctreeAccessAutoSize, Initialization)
     ASSERT_NO_THROW(PointsGenerator::addGrid(10, 1.0, oct, &positions));
 }
 
+TEST_F(OctreeAccessAutoSize, FindNearest0)
+{
+    Position target(0.1, -23, 876);
+    ASSERT_THROW(oct.getNearest(target), std::runtime_error);
+}
+
 TEST_F(OctreeAccessAutoSize, FindNearest1)
 {
     addElement(Position(0.2, -0.8, 1.0));
     Position target(0.1, -23, 876);
-    Element *ans = nullptr;
+    const Element *ans = nullptr;
     Position *brute = &(PointsGenerator::findNearestBruteForce(target, positions));
     ASSERT_NO_THROW(ans = & oct.getNearest(target) );
     ASSERT_EQ(*brute, ans->pos);
@@ -246,28 +283,28 @@ TEST_F(OctreeAccessAutoSize, FindNearest20)
     PointsGenerator::addGrid(2, 1.0, oct, &positions);
     {
         Position target(0.1, -0.8, 0.5);
-        Element *ans = nullptr;
+        const Element *ans = nullptr;
         Position *brute = &(PointsGenerator::findNearestBruteForce(target, positions));
         ASSERT_NO_THROW(ans = & oct.getNearest(target) );
         ASSERT_EQ(*brute, ans->pos);
     }
     {
         Position target(10, -678, -0.0001);
-        Element *ans = nullptr;
+        const Element *ans = nullptr;
         Position *brute = &(PointsGenerator::findNearestBruteForce(target, positions));
         ASSERT_NO_THROW(ans = & oct.getNearest(target) );
         ASSERT_EQ(*brute, ans->pos);
     }
     {
         Position target(1.0, -0.8, 0.5);
-        Element *ans = nullptr;
+        const Element *ans = nullptr;
         Position *brute = &(PointsGenerator::findNearestBruteForce(target, positions));
         ASSERT_NO_THROW(ans = & oct.getNearest(target) );
         ASSERT_EQ(*brute, ans->pos);
     }
     {
         Position target(positions.front());
-        Element *ans = nullptr;
+        const Element *ans = nullptr;
         Position *brute = &(PointsGenerator::findNearestBruteForce(target, positions));
         ASSERT_NO_THROW(ans = & oct.getNearest(target) );
         ASSERT_EQ(*brute, ans->pos);

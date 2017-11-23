@@ -24,6 +24,11 @@ class GeomVector
 {
 public:
 
+    GeomVector(const double* coords)
+    {
+        memcpy(x, coords, sizeof(double)*dim);
+    }
+
     GeomVector(std::initializer_list<double> initList)
     {
         double* px = this->x;

@@ -139,13 +139,14 @@ class Octree
 public:
 	Octree(double initialSize = 1.0);
 	Octree(Position center, double initialSize = 1.0);
+    void clear();
     void add(std::shared_ptr<Element> e);
 	void update();
 	size_t count();
 	
 	void dbgOutCoords(std::ostream& s);
 
-    Element& getNearest(Position pos);
+    const Element& getNearest(Position pos);
 	
     const Node& root() const { return *m_root; }
     double mass();
@@ -204,17 +205,49 @@ public:
     }
 
     /**
-     * @brief Calculate convolution of visitor v by all octree elements
-     * @param oct Octree object
-     * @param target Point where we are calculating convolution
-     * @param v Visitor function
-     * @return result of convolution
+     * @brief Calculate convolution by whole octree without exclusions
+     * @param oct       Octree
+     * @param target    Point where to calculate
+     * @param v         Visitor function
+     * @return Result of convolution
      */
     ResultType convolute(const Octree& oct, const Position& target, Visitor v)
     {
+        return convoluteExcludingElement(oct, target, v, nullptr);
+    }
+
+    /**
+     * @brief Calculate convolution by octree excluding element in position of which
+     *        convolution should be calculated
+     * @param oct            Octree
+     * @param excludedTarget Element that should be excluded. In its pos convolution
+     *                       will be calculated
+     * @param v              Visitor function
+     * @return Result of convolution
+     */
+    ResultType convoluteExcludingElement(const Octree& oct, const Element& excludedTarget, Visitor v)
+    {
+        return convoluteExcludingElement(oct, excludedTarget.pos, v, &excludedTarget);
+    }
+
+private:
+
+    /**
+     * @brief Calculate convolution of visitor v by all octree elements. One element may be excluded.
+     *        Parameters target and ignoreElement are ionterconnected, see below.
+     * @param oct           Octree object
+     * @param target        Point where we are calculating convolution
+     * @param v             Visitor function
+     * @param ignoreElement Element that will be excluded. Important that this element must be
+     *                      in one node with point target! This is the reason this function is
+     *                      unsafe for user.
+     * @return Result of convolution
+     */
+    ResultType convoluteExcludingElement(const Octree& oct, const Position& target, Visitor v, const Element* ignoreElement = nullptr)
+    {
         sortDistsScales();
         m_nodesList.clear();
-        ResultType result = ResultType(); // TODO: check this point
+        ResultType result = ResultType();
         for (
              m_nodesList.push_back(&oct.root());
              m_nodesList.size() != 0;
@@ -224,10 +257,16 @@ public:
             const Node *n = m_nodesList.front();
             if (n->isInside(target))
             {
+                // We are inside this node
                 if (n->element != nullptr)
                 {
                     // We have only one object in cube with point target, so we can ise directly its mass and center
-                    result += v(target, n->massCenter, n->mass);
+
+                    // Check if we must ignore this node
+                    if (n->element.get() != ignoreElement)
+                    {
+                        result += v(target, n->massCenter, n->mass);
+                    }
                 } else {
                     // Node we located in has subnodes, lets devide it
                     addSubnodesToList(n);
@@ -248,7 +287,6 @@ public:
         return result;
     }
 
-private:
     void sortDistsScales()
     {
         std::sort(m_distsScales.begin(), m_distsScales.end(),

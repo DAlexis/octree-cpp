@@ -26,14 +26,33 @@ TEST(ConvolutionInternals, FindScales)
 class ConvolutionTests : public ::testing::Test
 {
 public:
-    void addSomePoints()
+    shared_ptr<ElementValue> addSomePoints()
     {
-        oct.add(make_shared<ElementValue>(Position(2.0, 3.0, -8.0), 3.0));
-        oct.add(make_shared<ElementValue>(Position(0.0, 0.0, 0.0), 1.0));
-        oct.add(make_shared<ElementValue>(Position(8.0, 9.0, 9.0), 1.0));
-        oct.add(make_shared<ElementValue>(Position(-3.0, -9.0, -4.0), 2.0));
-        oct.add(make_shared<ElementValue>(Position(-7.0, -9.0, -4.0), 1.0));
-        oct.add(make_shared<ElementValue>(Position(-1.0, -4.0, -2.0), 1.0));
+        positions.push_back(Position(2.0, 3.0, -8.1));
+        masses.push_back(1.0);
+        oct.add(make_shared<ElementValue>(positions.back(), masses.back()));
+
+        positions.push_back(Position(0.0, 0.0, 0.2));
+        masses.push_back(2.0);
+        oct.add(make_shared<ElementValue>(positions.back(), masses.back()));
+
+        positions.push_back(Position(8.0, 9.0, 9.3));
+        masses.push_back(3.0);
+        oct.add(make_shared<ElementValue>(positions.back(), masses.back()));
+
+        positions.push_back(Position(-3.0, -9.0, -4.4));
+        masses.push_back(4.0);
+        oct.add(make_shared<ElementValue>(positions.back(), masses.back()));
+
+        positions.push_back(Position(-7.0, -9.0, -4.5));
+        masses.push_back(5.0);
+        oct.add(make_shared<ElementValue>(positions.back(), masses.back()));
+
+        positions.push_back(Position(-1.0, -4.0, -2.6));
+        masses.push_back(6.0);
+        auto last = make_shared<ElementValue>(positions.back(), masses.back());
+        oct.add(last);
+        return last;
     }
 
     void addManyPoints()
@@ -52,12 +71,14 @@ public:
     }
 
     int callsCounter = 0;
-    double somePointsMass = 9;
+    double somePointsMass = 21;
 
     Octree oct{Position(0.0, 0.0, 0.0), 20};
 
     // Vector for Coulomb
     std::vector<Position> positions;
+    std::vector<double> masses;
+
     Convolution<double> conv;
     Convolution<double>::Visitor massSumVisitor =
         [this](const Position& target, const Position& object, double mass)
@@ -75,10 +96,30 @@ public:
 TEST_F(ConvolutionTests, ConvoluteNoScale)
 {
     addSomePoints();
-    ASSERT_EQ(oct.mass(), 9.0);
+    ASSERT_EQ(oct.mass(), somePointsMass);
     ASSERT_NO_THROW(conv.convolute(oct, Position(0.0, 0.0, 0.0), massSumVisitor));
     ASSERT_EQ(callsCounter, 6);
     ASSERT_EQ(conv.convolute(oct, Position(0.0, 0.0, 0.0), massSumVisitor), somePointsMass);
+}
+
+
+TEST_F(ConvolutionTests, ConvoluteWithExclusion)
+{
+    auto last = addSomePoints();
+    double result = 0;
+    double trueResult = 0;
+    auto target = last->pos;
+    // Convolution in position of last without last
+    ASSERT_NO_THROW(result = conv.convoluteExcludingElement(oct, *last, coulomb));
+
+    // Manually calculated convolution without last
+    for (size_t i=0; i!=positions.size()-1; i++)
+    {
+        trueResult += masses[i]/(positions[i]-target).len();
+    }
+    ASSERT_NEAR_RELATIVE(result, trueResult, 1e-6);
+
+    //ASSERT_EQ(conv.convolute(oct, Position(0.0, 0.0, 0.0), massSumVisitor), somePointsMass);
 }
 
 TEST_F(ConvolutionTests, ConvoluteOneScalingZone)

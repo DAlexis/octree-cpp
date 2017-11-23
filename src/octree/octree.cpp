@@ -222,6 +222,12 @@ Octree::Octree(double initialSize) :
 {
 }
 
+void Octree::clear()
+{
+    m_root.reset();
+    m_centerIsSet = false;
+}
+
 void Octree::add(std::shared_ptr<Element> e)
 {
     // Creating root if no
@@ -253,7 +259,7 @@ size_t Octree::count()
         return 0;
 }
 
-Element& Octree::getNearest(Position pos)
+const Element& Octree::getNearest(Position pos)
 {
     using namespace std;
     if (m_root == nullptr)
@@ -307,7 +313,7 @@ Element& Octree::getNearest(Position pos)
 
     // const_cast is not bad, because const modifier used only for code above
     // in this function, and its job is done
-    return const_cast<Element&>(*(nodes.front().first->element));
+    return *(nodes.front().first->element);
 }
 
 double Octree::mass()
