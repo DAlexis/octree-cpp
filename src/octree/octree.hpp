@@ -183,25 +183,44 @@ private:
     Octree& m_octree;
 };
 
+class IScalesConfig
+{
+public:
+    virtual ~IScalesConfig() {}
+    virtual double findScale(double distance) const = 0;
+};
+
+/**
+ * @brief The ScalesConfig class stores averaging scales and
+ * corresponding minimal distances
+ */
+class DiscreteScales : public IScalesConfig
+{
+public:
+    DiscreteScales();
+    /**
+     * @brief addScale Allow averaging with scale averagingScale when objects are farer than minDistance
+     * @param minDistance Minimal distance that alow this averaging
+     * @param averagingScale Space size of blocks where objects masses may be averaged
+     */
+    void addScale(double minDistance, double averagingScale);
+
+    double findScale(double distance) const override;
+
+private:
+    void sortDistsScales();
+    std::vector<std::pair<double, double>> m_distsScales;
+};
+
 template<typename ResultType = double>
 class Convolution
 {
 public:
     using Visitor = std::function<ResultType(const Position& target, const Position& object, double mass)>;
 
-    Convolution()
+    Convolution(const IScalesConfig& scalesConfig) :
+        m_scalesConfig(scalesConfig)
     {
-        addScale(0.0, 0.0);
-    }
-
-    /**
-     * @brief addScale Allow averaging with scale averagingScale when objects are farer than minDistance
-     * @param minDistance Minimal distance that alow this averaging
-     * @param averagingScale Space size of blocks where objects masses may be averaged
-     */
-    void addScale(double minDistance, double averagingScale)
-    {
-        m_distsScales.push_back(std::pair<double, double>(minDistance, averagingScale));
     }
 
     /**
@@ -245,7 +264,6 @@ private:
      */
     ResultType convoluteExcludingElement(const Octree& oct, const Position& target, Visitor v, const Element* ignoreElement = nullptr)
     {
-        sortDistsScales();
         m_nodesList.clear();
         ResultType result = ResultType();
         for (
@@ -274,7 +292,7 @@ private:
                 continue;
             }
             DistToNode d = n->getDistsToNode(target);
-            double scale = findScale(d.nearest);
+            double scale = m_scalesConfig.findScale(d.nearest);
             if (n->diameter() <= scale)
             {
                 // We can use averaging over this node
@@ -287,31 +305,6 @@ private:
         return result;
     }
 
-    void sortDistsScales()
-    {
-        std::sort(m_distsScales.begin(), m_distsScales.end(),
-            [](const std::pair<double, double> p1, std::pair<double, double> p2)
-            { return p1.first < p2.first; }
-        );
-    }
-
-    double findScale(double distance)
-    {
-        if (distance >= m_distsScales.back().first)
-            return m_distsScales.back().second;
-        int l = 0, r = m_distsScales.size() - 1;
-        int c = (l+r) / 2;
-        while (r-l > 1)
-        {
-            if (m_distsScales[c].first <= distance)
-                l = c;
-            else
-                r = c;
-            c = (l+r) / 2;
-        }
-        return m_distsScales[l].second;
-    }
-
     void addSubnodesToList(const Node* n)
     {
         for (int i=0; i<8; i++)
@@ -321,7 +314,8 @@ private:
                 m_nodesList.push_back(subnode);
         }
     }
-    std::vector<std::pair<double, double>> m_distsScales;
+
+    const IScalesConfig& m_scalesConfig;
     std::list<const Node*> m_nodesList;
 };
 

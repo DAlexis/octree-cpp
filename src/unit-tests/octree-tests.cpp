@@ -10,14 +10,26 @@
 using namespace std;
 using namespace octree;
 
+/* GeomVector is simple and it was tested in my other projects where it was copied from.
+ * If you want, you may write this tests.
+ */
+TEST(Geometry, Instantiation)
+{
+    GeomVector<1> v1;
+    GeomVector<2> v2;
+    GeomVector<3> v3;
+    GeomVector<4> v4;
+}
+
 TEST(Node, DistToNode)
 {
-    Node n(nullptr, Position(10.0, 20.0, 30.0), 2.0);
-	auto d1 = n.getDistsToNode(Position(10.0, 20.0, 30.0));
+    const double x[] = {10.0, 20.0, 30.0};
+    Node n(nullptr, x, 2.0);
+    auto d1 = n.getDistsToNode({10.0, 20.0, 30.0});
 	EXPECT_NEAR(d1.farest, sqrt(3.0), 1e-6);
     EXPECT_NEAR(d1.nearest, sqrt(3.0), 1e-6);
 
-	auto d2 = n.getDistsToNode(Position(12.0, 22.0, 32.0));
+    auto d2 = n.getDistsToNode({12.0, 22.0, 32.0});
 	EXPECT_NEAR(d2.nearest, sqrt(3.0), 1e-6);
 	EXPECT_NEAR(d2.farest, 3*sqrt(3.0), 1e-6);
 }

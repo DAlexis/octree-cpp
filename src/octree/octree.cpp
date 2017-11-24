@@ -390,3 +390,40 @@ void CenterMassUpdatingMute::unmute()
         m_octree.unmuteCenterMassCalculation();
 }
 
+///////////////////////////
+/// ScalesConfig
+DiscreteScales::DiscreteScales()
+{
+    addScale(0.0, 0.0);
+}
+
+void DiscreteScales::addScale(double minDistance, double averagingScale)
+{
+    m_distsScales.push_back(std::pair<double, double>(minDistance, averagingScale));
+    sortDistsScales(); // Not very quick solutions, but we should not rewrite ScalesConfig often
+}
+
+void DiscreteScales::sortDistsScales()
+{
+    std::sort(m_distsScales.begin(), m_distsScales.end(),
+        [](const std::pair<double, double> p1, std::pair<double, double> p2)
+        { return p1.first < p2.first; }
+    );
+}
+
+double DiscreteScales::findScale(double distance) const
+{
+    if (distance >= m_distsScales.back().first)
+        return m_distsScales.back().second;
+    int l = 0, r = m_distsScales.size() - 1;
+    int c = (l+r) / 2;
+    while (r-l > 1)
+    {
+        if (m_distsScales[c].first <= distance)
+            l = c;
+        else
+            r = c;
+        c = (l+r) / 2;
+    }
+    return m_distsScales[l].second;
+}

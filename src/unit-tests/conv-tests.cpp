@@ -8,20 +8,19 @@
 
 using namespace std;
 using namespace octree;
-/*
-TEST(ConvolutionInternals, FindScales)
+
+TEST(DiscreteScales, FindScales)
 {
-    Convolution<double> c;
+    DiscreteScales c;
     c.addScale(20, 2);
     c.addScale(10, 1);
     c.addScale(50, 5);
     c.addScale(40, 4);
     c.addScale(30, 3);
-    ASSERT_NO_THROW(c.sortDistsScales());
     ASSERT_EQ(c.findScale(15), 1);
     ASSERT_EQ(c.findScale(90), 5);
     ASSERT_EQ(c.findScale(31), 3);
-}*/
+}
 
 class ConvolutionTests : public ::testing::Test
 {
@@ -79,7 +78,8 @@ public:
     std::vector<Position> positions;
     std::vector<double> masses;
 
-    Convolution<double> conv;
+    DiscreteScales scales;
+    Convolution<double> conv{scales};
     Convolution<double>::Visitor massSumVisitor =
         [this](const Position& target, const Position& object, double mass)
         {
@@ -128,7 +128,7 @@ TEST_F(ConvolutionTests, ConvoluteOneScalingZone)
     callsCounter = 0;
     ASSERT_EQ(conv.convolute(oct, Position(0.0, 0.0, 0.0), massSumVisitor), somePointsMass);
     int cc = callsCounter;
-    conv.addScale(0.1, 1000);
+    scales.addScale(0.1, 1000);
     callsCounter = 0;
     ASSERT_EQ(conv.convolute(oct, Position(15.0, 15.0, 15.0), massSumVisitor), somePointsMass);
     ASSERT_EQ(callsCounter, 1);
@@ -145,12 +145,12 @@ TEST_F(ConvolutionTests, ConvoluteCoulomb1)
     double convField = conv.convolute(oct, p1, coulomb);
     ASSERT_NEAR(realField, convField, 1e-8) << "Convolution gives bad ansver with ideal precision";
 
-    conv.addScale(5, 3);
+    scales.addScale(5, 3);
     convField = conv.convolute(oct, p1, coulomb);
     ASSERT_NEAR(realField, convField, 1e-3*realField) << "Convolution result has bad precision";
     //cout << realField << " " << convField << endl;
 
-    conv.addScale(7, 10);
+    scales.addScale(7, 10);
     convField = conv.convolute(oct, p1, coulomb);
     ASSERT_NEAR(realField, convField, 3e-3*realField) << "Convolution result has bad precision";
     //cout << realField << " " << convField << endl;
@@ -164,17 +164,17 @@ TEST_F(ConvolutionTests, ConvoluteCoulomb2)
     double convField = conv.convolute(oct, p1, coulomb);
     ASSERT_NEAR(realField, convField, 1e-8) << "Convolution gives bad ansver with ideal precision";
 
-    conv.addScale(5, 3);
+    scales.addScale(5, 3);
     convField = conv.convolute(oct, p1, coulomb);
     ASSERT_NEAR(realField, convField, 1e-3*realField) << "Convolution result has bad precision";
     //cout << realField << " " << convField << endl;
 
-    conv.addScale(7, 10);
+    scales.addScale(7, 10);
     convField = conv.convolute(oct, p1, coulomb);
     ASSERT_NEAR(realField, convField, 3e-3*realField) << "Convolution result has bad precision";
     //cout << realField << " " << convField << endl;
 
-    conv.addScale(10, 1000);
+    scales.addScale(10, 1000);
     convField = conv.convolute(oct, p1, coulomb);
     ASSERT_NEAR(realField, convField, 3e-3*realField) << "Convolution result has bad precision";
     //cout << realField << " " << convField << endl;
@@ -206,7 +206,8 @@ public:
 
     // Vector for Coulomb
     std::vector<Position> positions;
-    Convolution<FullEField> conv;
+    DiscreteScales scales;
+    Convolution<FullEField> conv{scales};
 
     Convolution<FullEField>::Visitor coulomb =
         [this](const Position& target, const Position& object, double mass)
@@ -236,7 +237,7 @@ TEST_F(ConvolutionTestsTempated, ConvoluteCoulomb1)
     ASSERT_NEAR_RELATIVE(realField.E[2], convField.E[2], 1e-3);
     ASSERT_NEAR_RELATIVE(realField.potential, convField.potential, 1e-3);
 
-    conv.addScale(4, 3);
+    scales.addScale(4, 3);
     convField = conv.convolute(oct, p1, coulomb);
 
     ASSERT_NEAR_RELATIVE(realField.E[0], convField.E[0], 5e-3);
@@ -244,7 +245,7 @@ TEST_F(ConvolutionTestsTempated, ConvoluteCoulomb1)
     ASSERT_NEAR_RELATIVE(realField.E[2], convField.E[2], 5e-3);
     ASSERT_NEAR_RELATIVE(realField.potential, convField.potential, 5e-3);
 
-    conv.addScale(7, 11);
+    scales.addScale(7, 11);
     convField = conv.convolute(oct, p1, coulomb);
 
     ASSERT_NEAR_RELATIVE(realField.E[0], convField.E[0], 1e-2);
@@ -254,7 +255,7 @@ TEST_F(ConvolutionTestsTempated, ConvoluteCoulomb1)
 
     p1 = {14.23, -23.45, -1.56};
     realField = getCoulombFieldBruteForce(p1);
-    conv.addScale(10, 30);
+    scales.addScale(10, 30);
     convField = conv.convolute(oct, p1, coulomb);
     ASSERT_NEAR_RELATIVE(realField.E[0], convField.E[0], 1e-1);
     ASSERT_NEAR_RELATIVE(realField.E[1], convField.E[1], 1e-1);

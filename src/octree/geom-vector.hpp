@@ -19,6 +19,11 @@ T sqr(T x)
 	return x*x;
 }
 
+/**
+ * This is a general-purpose vector class. You may use it in your project and may not.
+ * If octree library needs GeomVector as argument, you may pass raw double array, so
+ * it will not conflict with your linear algebra libraries
+ */
 template<int dim>
 class GeomVector
 {
