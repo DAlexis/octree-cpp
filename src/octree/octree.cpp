@@ -228,6 +228,11 @@ void Octree::clear()
     m_centerIsSet = false;
 }
 
+bool Octree::empty() const
+{
+    return m_root == nullptr;
+}
+
 void Octree::add(std::shared_ptr<Element> e)
 {
     // Creating root if no
@@ -316,6 +321,11 @@ const Element& Octree::getNearest(Position pos)
     return *(nodes.front().first->element);
 }
 
+const Node& Octree::root() const
+{
+    return *m_root;
+}
+
 double Octree::mass()
 {
     if (m_root == nullptr)
@@ -346,6 +356,8 @@ void Octree::muteCenterMassCalculation()
 void Octree::unmuteCenterMassCalculation()
 {
     m_centerMassUpdatingEnabled = true;
+    if (empty())
+        return;
     /// @todo Optimization: update only if changed
     m_root->updateMassCenterReqursiveDown();
 }

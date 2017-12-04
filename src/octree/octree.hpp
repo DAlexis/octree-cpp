@@ -140,6 +140,7 @@ public:
 	Octree(double initialSize = 1.0);
 	Octree(Position center, double initialSize = 1.0);
     void clear();
+    bool empty() const;
     void add(std::shared_ptr<Element> e);
 	void update();
 	size_t count();
@@ -148,7 +149,7 @@ public:
 
     const Element& getNearest(Position pos);
 	
-    const Node& root() const { return *m_root; }
+    const Node& root() const;
     double mass();
     const Position& massCenter();
 
@@ -264,15 +265,17 @@ private:
      */
     ResultType convoluteExcludingElement(const Octree& oct, const Position& target, Visitor v, const Element* ignoreElement = nullptr)
     {
-        m_nodesList.clear();
+        std::list<const Node*> nodesList;
         ResultType result = ResultType();
+        if (oct.empty())
+            return result;
         for (
-             m_nodesList.push_back(&oct.root());
-             m_nodesList.size() != 0;
-             m_nodesList.pop_front()
+             nodesList.push_back(&oct.root());
+             nodesList.size() != 0;
+             nodesList.pop_front()
         )
         {
-            const Node *n = m_nodesList.front();
+            const Node *n = nodesList.front();
             if (n->isInside(target))
             {
                 // We are inside this node
@@ -287,7 +290,7 @@ private:
                     }
                 } else {
                     // Node we located in has subnodes, lets devide it
-                    addSubnodesToList(n);
+                    addSubnodesToList(n, nodesList);
                 }
                 continue;
             }
@@ -299,24 +302,23 @@ private:
                 result += v(target, n->massCenter, n->mass);
             } else {
                 // Node is too large, so we should devide it
-                addSubnodesToList(n);
+                addSubnodesToList(n, nodesList);
             }
         }
         return result;
     }
 
-    void addSubnodesToList(const Node* n)
+    void addSubnodesToList(const Node* n, std::list<const Node*>& nodesList)
     {
         for (int i=0; i<8; i++)
         {
             const Node *subnode = n->subnodes[i].get();
             if (subnode != nullptr)
-                m_nodesList.push_back(subnode);
+                nodesList.push_back(subnode);
         }
     }
 
     const IScalesConfig& m_scalesConfig;
-    std::list<const Node*> m_nodesList;
 };
 
 }

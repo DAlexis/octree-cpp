@@ -93,6 +93,14 @@ public:
         };
 };
 
+TEST_F(ConvolutionTests, ConvoluteEmptyTree)
+{
+    double result = 0.0;
+    ASSERT_NO_THROW(result = conv.convolute(oct, Position(0.0, 0.0, 0.0), massSumVisitor));
+    ASSERT_EQ(callsCounter, 0);
+    ASSERT_EQ(result, 0.0);
+}
+
 TEST_F(ConvolutionTests, ConvoluteNoScale)
 {
     addSomePoints();
