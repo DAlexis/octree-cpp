@@ -11,6 +11,7 @@
 #include <memory>
 #include <cmath>
 #include <algorithm>
+#include <iostream>
 
 namespace octree {
 
@@ -70,7 +71,7 @@ struct SubdivisionPos
 
 struct DistToNode
 {
-	double nearest = 0.0, farest = 0.0;
+    double nearest = 0.0, farest = 0.0;
 };
 
 /**
@@ -98,6 +99,10 @@ public:
      */
     DistToNode getDistsToNode(Position pos) const;
 
+    double getMinDist(const Position& pos) const;
+
+    double getDistToCenter(const Position& pos) const;
+
 	/**
 	* @brief Checks if some point is inside this cell
 	* @param pos Point to test
@@ -114,8 +119,6 @@ public:
 	int subdivisionLevel = 0;
 	bool hasSubnodes = false;
 
-    //OctreeNode*& getSubnode(const SubdivisionPos& sp);
-
 	Position center;
 	double size;
 
@@ -131,7 +134,10 @@ public:
 private:
 
     void giveElementToSubnodes(std::shared_ptr<Element> e);
+    void calculateCorners();
+
     Octree* m_octree = nullptr;
+    Position m_corners[8];
 };
 
 class Octree
@@ -265,17 +271,17 @@ private:
      */
     ResultType convoluteExcludingElement(const Octree& oct, const Position& target, Visitor v, const Element* ignoreElement = nullptr)
     {
-        std::list<const Node*> nodesList;
+        // Vector is used instead of list to prevent new/deletes for single pointers
+        std::vector<const Node*> nodesVector;
+        nodesVector.reserve(200);
         ResultType result = ResultType();
         if (oct.empty())
             return result;
-        for (
-             nodesList.push_back(&oct.root());
-             nodesList.size() != 0;
-             nodesList.pop_front()
-        )
+
+        nodesVector.push_back(&oct.root());
+        for (size_t i=0; i != nodesVector.size(); i++)
         {
-            const Node *n = nodesList.front();
+            const Node *n = nodesVector[i];
             if (n->isInside(target))
             {
                 // We are inside this node
@@ -290,31 +296,35 @@ private:
                     }
                 } else {
                     // Node we located in has subnodes, lets devide it
-                    addSubnodesToList(n, nodesList);
+                    addSubnodesToVector(n, nodesVector);
                 }
                 continue;
             }
-            DistToNode d = n->getDistsToNode(target);
-            double scale = m_scalesConfig.findScale(d.nearest);
+            //double d = n->getMinDist(target);
+
+            // This variant approximate a cube by a sphere and it is faster,
+            // because it does not contain any ifs and min/max finding
+            double d = n->getDistToCenter(target) - n->diameter() * 0.5;
+            double scale = m_scalesConfig.findScale(d);
             if (n->diameter() <= scale)
             {
                 // We can use averaging over this node
                 result += v(target, n->massCenter, n->mass);
             } else {
                 // Node is too large, so we should devide it
-                addSubnodesToList(n, nodesList);
+                addSubnodesToVector(n, nodesVector);
             }
         }
         return result;
     }
 
-    void addSubnodesToList(const Node* n, std::list<const Node*>& nodesList)
+    void addSubnodesToVector(const Node* n, std::vector<const Node*>& nodesVector)
     {
         for (int i=0; i<8; i++)
         {
             const Node *subnode = n->subnodes[i].get();
             if (subnode != nullptr)
-                nodesList.push_back(subnode);
+                nodesVector.push_back(subnode);
         }
     }
 

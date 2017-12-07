@@ -198,6 +198,18 @@ public:
     		x[i] /= l;
     }
 
+    double distTo(const GeomVector<dim>& target) const
+    {
+        double result = 0.0;
+        const double *t = target.x;
+        for (int i=0; i<dim; i++)
+        {
+            double d = x[i] - t[i];
+            result += d*d;
+        }
+        return sqrt(result);
+    }
+
     double x[dim];
 };
 

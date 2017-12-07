@@ -33,11 +33,13 @@ Node::Node(Octree* octree, SubdivisionPos subdivision, Node* parent) :
         else
             center.x[i] = parent->center.x[i] + hs;
     }
+    calculateCorners();
 }
 
 Node::Node(Octree* octree, Position center, double size) :
         subdivisionLevel(0), center(center), size(size), m_octree(octree)
 {
+    calculateCorners();
 }
 
 void Node::addElement(std::shared_ptr<Element> e)
@@ -87,7 +89,7 @@ size_t Node::elementsCount() const
 double Node::diameter() const
 {
     if (element == nullptr)
-        return size * sqrt(3);
+        return size * sqrt(3.0);
     else
         return 0.0;
 }
@@ -97,9 +99,20 @@ DistToNode Node::getDistsToNode(Position pos) const
     DistToNode result;
     if (element != nullptr)
     {
-        result.nearest = result.farest = (element->pos - pos).len();
+        result.nearest = result.farest = element->pos.distTo(pos);
         return result;
     }
+    result.nearest = result.farest = m_corners[0].distTo(pos);
+    for (int i=1; i<8; i++)
+    {
+        double dist = m_corners[i].distTo(pos);
+        if (result.farest < dist)
+            result.farest = dist;
+        if (result.nearest > dist)
+            result.nearest = dist;
+    }
+
+    /*
     result.nearest = -1;
     result.farest = -1;
     Position corner;
@@ -123,13 +136,37 @@ DistToNode Node::getDistsToNode(Position pos) const
                     result.farest = dist;
                 if (result.nearest > dist)
                     result.nearest = dist;
-            }
+            }*/
     return result;
+}
+
+double Node::getMinDist(const Position& pos) const
+{
+    if (element != nullptr)
+    {
+        return element->pos.distTo(pos);
+    }
+    double minDist = m_corners[0].distTo(pos);
+    for (int i=1; i<8; i++)
+    {
+        double dist = m_corners[i].distTo(pos);
+        if (minDist > dist)
+            minDist = dist;
+    }
+    return minDist;
+}
+
+double Node::getDistToCenter(const Position& pos) const
+{
+    if (element != nullptr)
+    {
+        return element->pos.distTo(pos);
+    }
+    return pos.distTo(center);
 }
 
 bool Node::isInside(const Position& pos) const
 {
-
     double hs = size*0.5;
     for (int i=0; i<3; i++)
     {
@@ -213,6 +250,21 @@ void Node::giveElementToSubnodes(std::shared_ptr<Element> e)
         hasSubnodes = true;
     }
     subnodes[index]->addElement(e);
+}
+
+void Node::calculateCorners()
+{
+    double hs = size*0.5;
+    int i = 0;
+    for (int x = -1; x <=1; x += 2)
+        for (int y = -1; y <=1; y += 2)
+            for (int z = -1; z <=1; z += 2)
+            {
+                m_corners[i].x[0] = center.x[0] + x*hs;
+                m_corners[i].x[1] = center.x[1] + y*hs;
+                m_corners[i].x[2] = center.x[2] + z*hs;
+                i++;
+            }
 }
 
 /////////////////////////////////
