@@ -22,15 +22,16 @@ Node::Node(Octree* octree, SubdivisionPos subdivision, Node* parent) :
     parent(parent),
     subdivisionPos(subdivision),
     subdivisionLevel(parent->subdivisionLevel + 1),
-    size(parent->size / 2.0),
+    size(parent->size * 0.5),
     m_octree(octree)
 {
+    double hs = size * 0.5;
     for (int i=0; i<3; i++)
     {
         if (subdivision.s[i] == 0)
-            center.x[i] = parent->center.x[i] - size / 2.0;
+            center.x[i] = parent->center.x[i] - hs;
         else
-            center.x[i] = parent->center.x[i] + size / 2.0;
+            center.x[i] = parent->center.x[i] + hs;
     }
 }
 
@@ -102,18 +103,21 @@ DistToNode Node::getDistsToNode(Position pos) const
     result.nearest = -1;
     result.farest = -1;
     Position corner;
-    corner.x[0] = center.x[0] + size/2.0;
-    corner.x[1] = center.x[1] + size/2.0;
-    corner.x[2] = center.x[2] + size/2.0;
+
+    double hs = size*0.5;
+
+    corner.x[0] = center.x[0] + hs;
+    corner.x[1] = center.x[1] + hs;
+    corner.x[2] = center.x[2] + hs;
     result.nearest = result.farest = (corner - pos).len();
 
     for (int x = -1; x <=1; x += 2)
         for (int y = -1; y <=1; y += 2)
             for (int z = -1; z <=1; z += 2)
             {
-                corner.x[0] = center.x[0] + x*size/2.0;
-                corner.x[1] = center.x[1] + y*size/2.0;
-                corner.x[2] = center.x[2] + z*size/2.0;
+                corner.x[0] = center.x[0] + x*hs;
+                corner.x[1] = center.x[1] + y*hs;
+                corner.x[2] = center.x[2] + z*hs;
                 double dist = (corner - pos).len();
                 if (result.farest < dist)
                     result.farest = dist;
@@ -125,12 +129,13 @@ DistToNode Node::getDistsToNode(Position pos) const
 
 bool Node::isInside(const Position& pos) const
 {
-    double hs = size / 2.0;
+
+    double hs = size*0.5;
     for (int i=0; i<3; i++)
     {
         if (
-            pos.x[i] >= center.x[i] + hs
-            || pos.x[i] < center.x[i] - hs
+            pos.x[i] - hs >= center.x[i]
+            || pos.x[i] + hs < center.x[i]
         )
             return false;
     }
@@ -164,7 +169,6 @@ void Node::updateMassCenter()
     }
     massCenter = {0.0, 0.0, 0.0};
     mass = 0.0;
-    int count = 0;
     for (int i=0; i<8; i++)
     {
         if (subnodes[i] != nullptr)
@@ -172,10 +176,14 @@ void Node::updateMassCenter()
             double nodeMass = subnodes[i]->mass;
             massCenter += subnodes[i]->massCenter * nodeMass;
             mass += nodeMass;
-            count++;
         }
     }
-    massCenter /= mass;
+    if (mass != 0.0)
+        massCenter /= mass;
+    else
+    {
+        massCenter = center;
+    }
 }
 
 void Node::updateMassCenterReqursiveUp()
@@ -241,6 +249,17 @@ void Octree::add(std::shared_ptr<Element> e)
         if (!m_centerIsSet)
         {
             m_center = e->pos;
+
+            /**
+             * We should not put grid center directly into the point due to double
+             * computetion errors: it may be concerned as a point from mode than one subnodes,
+             * because subnodes centers are not inaccurate.
+             *
+             * If you know better way to get rid of floating point errors, do it.
+             */
+            m_center[0] -= m_initialSize * 0.13;
+            m_center[1] -= m_initialSize * 0.13;
+            m_center[2] -= m_initialSize * 0.13;
             m_centerIsSet = true;
         }
 
