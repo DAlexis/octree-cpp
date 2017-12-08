@@ -158,25 +158,17 @@ double Node::getMinDist(const Position& pos) const
 
 double Node::getDistToCenter(const Position& pos) const
 {
-    if (element != nullptr)
-    {
-        return element->pos.distTo(pos);
-    }
     return pos.distTo(center);
 }
 
 bool Node::isInside(const Position& pos) const
 {
+    const double *p = pos.x;
+    const double *c = center.x;
     double hs = size*0.5;
-    for (int i=0; i<3; i++)
-    {
-        if (
-            pos.x[i] - hs >= center.x[i]
-            || pos.x[i] + hs < center.x[i]
-        )
-            return false;
-    }
-    return true;
+    return (p[0] >= c[0] - hs) & (p[0] < c[0] + hs)
+            & (p[1] >= c[1] - hs) & (p[1] < c[1] + hs)
+            & (p[2] >= c[2] - hs) & (p[2] < c[2] + hs);
 }
 
 void Node::dbgOutCoords(std::ostream& s)
@@ -471,6 +463,16 @@ void CenterMassUpdatingMute::unmute()
 {
     if (!m_octree.centerMassUpdatingEnabled())
         m_octree.unmuteCenterMassCalculation();
+}
+
+LinearScales::LinearScales(double k) :
+    m_k(k)
+{
+}
+
+double LinearScales::findScale(double distance) const
+{
+    return distance*m_k;
 }
 
 ///////////////////////////

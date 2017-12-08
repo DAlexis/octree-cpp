@@ -197,6 +197,15 @@ public:
     virtual double findScale(double distance) const = 0;
 };
 
+class LinearScales : public IScalesConfig
+{
+public:
+    LinearScales(double k=0.5);
+    double findScale(double distance) const override;
+private:
+    double m_k;
+};
+
 /**
  * @brief The ScalesConfig class stores averaging scales and
  * corresponding minimal distances
@@ -304,9 +313,10 @@ private:
 
             // This variant approximate a cube by a sphere and it is faster,
             // because it does not contain any ifs and min/max finding
-            double d = n->getDistToCenter(target) - n->diameter() * 0.5;
-            double scale = m_scalesConfig.findScale(d);
-            if (n->diameter() <= scale)
+            double dia = n->diameter();
+            double dist = n->getDistToCenter(target) - dia * 0.5;
+            double scale = m_scalesConfig.findScale(dist);
+            if (dia <= scale)
             {
                 // We can use averaging over this node
                 result += v(target, n->massCenter, n->mass);
