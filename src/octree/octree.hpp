@@ -88,7 +88,6 @@ public:
     Node(Octree* octree, Position center, double size);
     void addElement(std::shared_ptr<Element> e);
     size_t elementsCount() const;
-    Element& findNearest(Position pos);
 
     double diameter() const;
 
@@ -131,6 +130,38 @@ public:
     void updateMassCenterReqursiveDown();
     void updateMassCenter();
 
+    /**
+     * @brief Put all non-zero const pointers to subnodes into container
+     * @param container Any container supporting push_back method
+     */
+    template<class T>
+    void pushBackSubnodes(T& container) const
+    {
+        for (int i=0; i<8; i++)
+        {
+            const Node *subnode = subnodes[i].get();
+            if (subnode != nullptr)
+                container.push_back(subnode);
+        }
+    }
+
+    template<class T>
+    void pushBackAllElements(T& container) const
+    {
+        if (element != nullptr)
+        {
+            container.push_back(element.get());
+            return;
+        }
+
+        for (int i=0; i<8; i++)
+        {
+            const Node *subnode = subnodes[i].get();
+            if (subnode != nullptr)
+                subnode->pushBackAllElements(container);
+        }
+    }
+
 private:
 
     void giveElementToSubnodes(std::shared_ptr<Element> e);
@@ -154,6 +185,7 @@ public:
 	void dbgOutCoords(std::ostream& s);
 
     const Element& getNearest(Position pos);
+    void getClose(std::vector<Element*>& target, const Position& pos, double dist) const;
 	
     const Node& root() const;
     double mass();
@@ -241,44 +273,13 @@ public:
 
     /**
      * @brief Calculate convolution by whole octree without exclusions
+     * Algorythm is upgraded. No isInside check used
      * @param oct       Octree
      * @param target    Point where to calculate
      * @param v         Visitor function
      * @return Result of convolution
      */
     ResultType convolute(const Octree& oct, const Position& target, Visitor v)
-    {
-        return convoluteExcludingElement(oct, target, v, nullptr);
-    }
-
-    /**
-     * @brief Calculate convolution by octree excluding element in position of which
-     *        convolution should be calculated
-     * @param oct            Octree
-     * @param excludedTarget Element that should be excluded. In its pos convolution
-     *                       will be calculated
-     * @param v              Visitor function
-     * @return Result of convolution
-     */
-    ResultType convoluteExcludingElement(const Octree& oct, const Element& excludedTarget, Visitor v)
-    {
-        return convoluteExcludingElement(oct, excludedTarget.pos, v, &excludedTarget);
-    }
-
-private:
-
-    /**
-     * @brief Calculate convolution of visitor v by all octree elements. One element may be excluded.
-     *        Parameters target and ignoreElement are ionterconnected, see below.
-     * @param oct           Octree object
-     * @param target        Point where we are calculating convolution
-     * @param v             Visitor function
-     * @param ignoreElement Element that will be excluded. Important that this element must be
-     *                      in one node with point target! This is the reason this function is
-     *                      unsafe for user.
-     * @return Result of convolution
-     */
-    ResultType convoluteExcludingElement(const Octree& oct, const Position& target, Visitor v, const Element* ignoreElement = nullptr)
     {
         // Vector is used instead of list to prevent new/deletes for single pointers
         std::vector<const Node*> nodesVector;
@@ -291,25 +292,6 @@ private:
         for (size_t i=0; i != nodesVector.size(); i++)
         {
             const Node *n = nodesVector[i];
-            if (n->isInside(target))
-            {
-                // We are inside this node
-                if (n->element != nullptr)
-                {
-                    // We have only one object in cube with point target, so we can ise directly its mass and center
-
-                    // Check if we must ignore this node
-                    if (n->element.get() != ignoreElement)
-                    {
-                        result += v(target, n->massCenter, n->mass);
-                    }
-                } else {
-                    // Node we located in has subnodes, lets devide it
-                    addSubnodesToVector(n, nodesVector);
-                }
-                continue;
-            }
-            //double d = n->getMinDist(target);
 
             // This variant approximate a cube by a sphere and it is faster,
             // because it does not contain any ifs and min/max finding
@@ -322,21 +304,13 @@ private:
                 result += v(target, n->massCenter, n->mass);
             } else {
                 // Node is too large, so we should devide it
-                addSubnodesToVector(n, nodesVector);
+                n->pushBackSubnodes(nodesVector);
             }
         }
         return result;
     }
 
-    void addSubnodesToVector(const Node* n, std::vector<const Node*>& nodesVector)
-    {
-        for (int i=0; i<8; i++)
-        {
-            const Node *subnode = n->subnodes[i].get();
-            if (subnode != nullptr)
-                nodesVector.push_back(subnode);
-        }
-    }
+private:
 
     const IScalesConfig& m_scalesConfig;
 };

@@ -89,7 +89,10 @@ public:
     Convolution<double>::Visitor coulomb =
         [this](const Position& target, const Position& object, double mass)
         {
-            return mass/(target-object).len();
+            double d = (target-object).len();
+            if (d == 0.0)
+                return 0.0;
+            return mass/d;
         };
 };
 
@@ -111,14 +114,14 @@ TEST_F(ConvolutionTests, ConvoluteNoScale)
 }
 
 
-TEST_F(ConvolutionTests, ConvoluteWithExclusion)
+TEST_F(ConvolutionTests, ConvoluteWithScale)
 {
     auto last = addSomePoints();
     double result = 0;
     double trueResult = 0;
     auto target = last->pos;
     // Convolution in position of last without last
-    ASSERT_NO_THROW(result = conv.convoluteExcludingElement(oct, *last, coulomb));
+    ASSERT_NO_THROW(result = conv.convolute(oct, last->pos, coulomb));
 
     // Manually calculated convolution without last
     for (size_t i=0; i!=positions.size()-1; i++)

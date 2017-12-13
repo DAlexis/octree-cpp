@@ -27,7 +27,8 @@ TEST(Node, DistToNode)
     Node n(nullptr, x, 2.0);
     auto d1 = n.getDistsToNode({10.0, 20.0, 30.0});
 	EXPECT_NEAR(d1.farest, sqrt(3.0), 1e-6);
-    EXPECT_NEAR(d1.nearest, sqrt(3.0), 1e-6);
+    // We are inside
+    EXPECT_NEAR(d1.nearest, 0.0, 1e-6);
 
     auto d2 = n.getDistsToNode({12.0, 22.0, 32.0});
 	EXPECT_NEAR(d2.nearest, sqrt(3.0), 1e-6);
@@ -324,6 +325,42 @@ TEST_F(OctreeAccessAutoSize, FindNearest20)
     // @todo: empty, only one
 }
 
+TEST_F(OctreeAccessAutoSize, FindClose0)
+{
+    std::vector<Element*> close;
+    ASSERT_NO_THROW(oct.getClose(close, Position(1.001, 1.001, 1.001), 0.1));
+    ASSERT_EQ(close.size(), 0);
+}
+
+TEST_F(OctreeAccessAutoSize, FindClose8)
+{
+    // Cube 1x1x1
+    addElement(Position(0.0, 0.0, 0.0));
+    addElement(Position(1.0, 0.0, 0.0));
+    addElement(Position(0.0, 1.0, 0.0));
+    addElement(Position(1.0, 1.0, 0.0));
+
+    addElement(Position(0.0, 0.0, 1.0));
+    addElement(Position(1.0, 0.0, 1.0));
+    addElement(Position(0.0, 1.0, 1.0));
+    addElement(Position(1.0, 1.0, 1.0));
+
+    std::vector<Element*> close;
+    ASSERT_NO_THROW(oct.getClose(close, Position(1.001, 1.001, 1.001), 0.1));
+    ASSERT_EQ(close.size(), 1);
+    ASSERT_EQ(close.front()->pos[0], 1.0);
+    ASSERT_EQ(close.front()->pos[1], 1.0);
+    ASSERT_EQ(close.front()->pos[2], 1.0);
+
+    close.clear();
+    ASSERT_NO_THROW(oct.getClose(close, Position(1.001, 1.001, 1.001), 1.1));
+    ASSERT_EQ(close.size(), 4);
+
+    close.clear();
+    ASSERT_NO_THROW(oct.getClose(close, Position(1.001, 1.001, 1.001), 3.0));
+    ASSERT_EQ(close.size(), 8);
+}
+
 //////////////////////////
 // Center of mass testing
 TEST(MassCenter, SimpleCases)
@@ -362,3 +399,4 @@ TEST(MassCenter, ManyPoints)
     ASSERT_NEAR(c[1], 0.0, 1e-10);
     ASSERT_NEAR(c[2], 0.0, 1e-10);
 }
+

@@ -102,6 +102,19 @@ DistToNode Node::getDistsToNode(Position pos) const
         result.nearest = result.farest = element->pos.distTo(pos);
         return result;
     }
+    if (isInside(pos))
+    {
+        result.nearest = 0.0;
+        result.farest = m_corners[0].distTo(pos);
+        for (int i=1; i<8; i++)
+        {
+            double dist = m_corners[i].distTo(pos);
+            if (result.farest < dist)
+                result.farest = dist;
+        }
+        return result;
+    }
+
     result.nearest = result.farest = m_corners[0].distTo(pos);
     for (int i=1; i<8; i++)
     {
@@ -384,6 +397,33 @@ const Element& Octree::getNearest(Position pos)
     return *(nodes.front().first->element);
 }
 
+void Octree::getClose(std::vector<Element*>& target, const Position& pos, double dist) const
+{
+    std::vector<const Node*> nodesVector;
+    nodesVector.reserve(200);
+    if (empty())
+        return;
+
+    nodesVector.push_back(&root());
+    for (size_t i=0; i != nodesVector.size(); i++)
+    {
+        const Node *n = nodesVector[i];
+        DistToNode nodeDist = n->getDistsToNode(pos);
+        // All node is too far
+        if (nodeDist.nearest > dist)
+            continue;
+        // All node is enough close
+        if (nodeDist.farest <= dist)
+        {
+            n->pushBackAllElements(target);
+            continue;
+        }
+
+        // Some parts are close and some are far. Need division
+        n->pushBackSubnodes(nodesVector);
+    }
+}
+
 const Node& Octree::root() const
 {
     return *m_root;
@@ -472,6 +512,8 @@ LinearScales::LinearScales(double k) :
 
 double LinearScales::findScale(double distance) const
 {
+    if (distance < 0.0)
+        return 0.0;
     return distance*m_k;
 }
 
