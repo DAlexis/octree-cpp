@@ -83,13 +83,13 @@ struct DistToNode
  */
 class Node
 {
+friend class Octree;
 public:
     Node(Octree* octree, SubdivisionPos subdivision, Node* parent);
     Node(Octree* octree, Position center, double size);
     void addElement(std::shared_ptr<Element> e);
-    size_t elementsCount() const;
 
-    double diameter() const;
+    size_t elementsCount() const;
 
     /**
      * @brief Returns minimal and maximal distance to node (to its corners)
@@ -109,17 +109,16 @@ public:
 	*/
     bool isInside(const Position& pos) const;
 
-	void dbgOutCoords(std::ostream& s);
+    void dbgOutCoords(std::ostream& s) const;
 
     std::shared_ptr<Element> element;
-    Node* parent = nullptr;
 	
 	SubdivisionPos subdivisionPos;
-	int subdivisionLevel = 0;
-	bool hasSubnodes = false;
 
 	Position center;
 	double size;
+
+    double dia;
 
     Position massCenter;
     double mass;
@@ -163,9 +162,13 @@ public:
     }
 
 private:
+    int subdivisionLevel = 0;
+    bool hasSubnodes = false;
+    Node* parent = nullptr;
 
     void giveElementToSubnodes(std::shared_ptr<Element> e);
     void calculateCorners();
+    void updateDiameter();
 
     Octree* m_octree = nullptr;
     Position m_corners[8];
@@ -295,7 +298,7 @@ public:
 
             // This variant approximate a cube by a sphere and it is faster,
             // because it does not contain any ifs and min/max finding
-            double dia = n->diameter();
+            double dia = n->dia;
             double dist = n->getDistToCenter(target) - dia * 0.5;
             double scale = m_scalesConfig.findScale(dist);
             if (dia <= scale)

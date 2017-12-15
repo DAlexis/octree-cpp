@@ -19,11 +19,12 @@ SubdivisionPos::SubdivisionPos(Position center, Position point)
 
 
 Node::Node(Octree* octree, SubdivisionPos subdivision, Node* parent) :
-    parent(parent),
     subdivisionPos(subdivision),
-    subdivisionLevel(parent->subdivisionLevel + 1),
     size(parent->size * 0.5),
+    subdivisionLevel(parent->subdivisionLevel + 1),
+    parent(parent),
     m_octree(octree)
+
 {
     double hs = size * 0.5;
     for (int i=0; i<3; i++)
@@ -34,12 +35,14 @@ Node::Node(Octree* octree, SubdivisionPos subdivision, Node* parent) :
             center.x[i] = parent->center.x[i] + hs;
     }
     calculateCorners();
+    updateDiameter();
 }
 
 Node::Node(Octree* octree, Position center, double size) :
-        subdivisionLevel(0), center(center), size(size), m_octree(octree)
+        center(center), size(size), subdivisionLevel(0), m_octree(octree)
 {
     calculateCorners();
+    updateDiameter();
 }
 
 void Node::addElement(std::shared_ptr<Element> e)
@@ -53,6 +56,7 @@ void Node::addElement(std::shared_ptr<Element> e)
             element->parent = this;
             if (m_octree->centerMassUpdatingEnabled())
                 updateMassCenterReqursiveUp();
+            updateDiameter();
             return;
         }
 
@@ -62,6 +66,7 @@ void Node::addElement(std::shared_ptr<Element> e)
         // subnodes-holding
         if (element->pos == e->pos)
         {
+            updateDiameter();
             throw std::runtime_error("Cannot work with 2 elements at one place");
         }
         element->parent = nullptr;
@@ -69,6 +74,7 @@ void Node::addElement(std::shared_ptr<Element> e)
         element.reset();
     }
     giveElementToSubnodes(e);
+    updateDiameter();
 }
 
 
@@ -84,14 +90,6 @@ size_t Node::elementsCount() const
             count += subnodes[i]->elementsCount();
     }
     return count;
-}
-
-double Node::diameter() const
-{
-    if (element == nullptr)
-        return size * sqrt(3.0);
-    else
-        return 0.0;
 }
 
 DistToNode Node::getDistsToNode(Position pos) const
@@ -184,7 +182,7 @@ bool Node::isInside(const Position& pos) const
             & (p[2] >= c[2] - hs) & (p[2] < c[2] + hs);
 }
 
-void Node::dbgOutCoords(std::ostream& s)
+void Node::dbgOutCoords(std::ostream& s) const
 {
     for (int x = -1; x <=1; x += 2)
         for (int y = -1; y <=1; y += 2)
@@ -270,6 +268,14 @@ void Node::calculateCorners()
                 m_corners[i].x[2] = center.x[2] + z*hs;
                 i++;
             }
+}
+
+void Node::updateDiameter()
+{
+    if (element == nullptr)
+        dia = size * sqrt(3.0);
+    else
+        dia = 0.0;
 }
 
 /////////////////////////////////
