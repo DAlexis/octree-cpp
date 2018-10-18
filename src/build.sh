@@ -17,5 +17,5 @@ fi
 
 mkdir -p $build_dir
 (
-    cd $build_dir && cmake -DCMAKE_BUILD_TYPE=$cfg $source_dir_from_build_dir && make -j `nproc` && make run-unit-tests
+    cd $build_dir && cmake -DCMAKE_BUILD_TYPE=$cfg $source_dir_from_build_dir && make -j `nproc` && GTEST_COLOR=1 ctest -VV
 )
