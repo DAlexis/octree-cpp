@@ -8,23 +8,9 @@ set(LIB_SOURCE
     geom-vector.hpp
 )
 
-set(${PROJECT_NAME}_USED_INCDIRS
-    # includes here
-)
-
-include_directories(${${PROJECT_NAME}_USED_INCDIRS})
-
 add_library(${PROJECT_NAME} STATIC ${LIB_SOURCE})
 
+target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR})
 
 set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 11)
 set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD_REQUIRED ON)
-
-export_include_dirs(
-    ${PROJECT_SOURCE_DIR}
-    ${${PROJECT_NAME}_USED_INCDIRS}
-)
-
-export_libs(
-    ${PROJECT_NAME}
-)

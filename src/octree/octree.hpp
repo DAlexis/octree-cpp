@@ -34,8 +34,6 @@ struct Element
 	{ }
 	Position pos;
     double &value;
-	bool isDirty = false;
-	bool toRemove = false;
 
     Node* parent = nullptr;
 };
